@@ -1,0 +1,9 @@
+{
+  "version": 2,
+  "rewrites": [
+    { "source": "/api/extract-bc", "destination": "/api/extract-bc" },
+    { "source": "/api/get-bcs", "destination": "/api/get-bcs" },
+    { "source": "/api/save-bc", "destination": "/api/save-bc" },
+    { "source": "/api/delete-bc", "destination": "/api/delete-bc" }
+  ]
+}
