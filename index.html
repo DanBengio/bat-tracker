@@ -141,6 +141,16 @@
   .toast{position:fixed;bottom:24px;right:24px;background:var(--surface);border:1px solid rgba(0,135,183,0.3);border-radius:6px;padding:11px 18px;font-size:12px;color:var(--text);z-index:3000;transform:translateY(60px);opacity:0;transition:all 0.3s;pointer-events:none;box-shadow:0 4px 16px rgba(0,0,0,0.1);}
   .toast.show{transform:translateY(0);opacity:1;}
   @keyframes spin{to{transform:rotate(360deg);}}
+  .flat-table{width:100%;border-collapse:collapse;font-size:12px;background:var(--surface);border-radius:8px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.05);}
+  .flat-table th{padding:9px 12px;text-align:left;font-size:9px;letter-spacing:0.8px;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border);font-weight:600;background:var(--surface2);}
+  .flat-table td{padding:9px 12px;border-bottom:1px solid var(--border);vertical-align:middle;}
+  .flat-table tr:last-child td{border-bottom:none;}
+  .flat-table tbody tr:hover td{background:rgba(0,135,183,0.02);}
+  .flat-ref{font-family:'Raleway',sans-serif;font-weight:700;font-size:11px;color:var(--blue);white-space:nowrap;}
+  .flat-client{font-size:10px;color:var(--muted);margin-top:2px;}
+  .flat-view-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+  .flat-view-title{font-family:'Raleway',sans-serif;font-weight:700;font-size:14px;color:var(--text);}
+  .flat-count{font-size:11px;color:var(--muted);}
   .spinner{width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 12px;}
   .sync-indicator{position:fixed;top:70px;right:16px;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:7px 14px;font-size:11px;color:var(--muted);box-shadow:0 2px 8px rgba(0,0,0,0.08);z-index:500;display:none;align-items:center;gap:8px;}
   .sync-indicator.show{display:flex;}
@@ -441,6 +451,60 @@ function cardHTML(cmd){
 </div>`;
 }
 
+function flatView(fil, statut) {
+  // Collecter toutes les lignes du statut avec leur BC
+  const allLignes = [];
+  fil.forEach(cmd => {
+    (cmd.lignes || []).forEach((l, i) => {
+      if ((l.statut || 'simulation') === statut) {
+        allLignes.push({ cmd, ligne: l, li: i });
+      }
+    });
+  });
+
+  if (!allLignes.length) return `<div class="empty"><div class="ei">📦</div><h3>Aucun article en ${SL[statut]}</h3></div>`;
+
+  const rows = allLignes.map(({ cmd, ligne, li }) => `
+    <tr>
+      <td>
+        <div class="flat-ref" onclick="setFilter('all',document.querySelector('.fb.active'));toggle('${cmd.id}')" style="cursor:pointer">${cmd.reference}</div>
+        <div class="flat-client">${cmd.client}</div>
+      </td>
+      <td>${mockupCell(cmd.id, li, ligne.mockup)}</td>
+      <td><span class="tpill ${ligne.type==='goodies'?'tg':'tt'}">${ligne.type}</span></td>
+      <td>
+        <strong>${ligne.description}</strong>
+        ${ligne.marquage ? `<div style="font-size:10px;color:var(--muted);margin-top:2px">${ligne.marquage}</div>` : ''}
+      </td>
+      <td style="text-align:center">${ligne.quantite}</td>
+      <td>
+        <select class="fsel" onchange="setLF('${cmd.id}',${li},this.value)">
+          <option value="">— Fournisseur</option>
+          ${fournisseurs.map(f => `<option value="${f}"${ligne.fournisseur===f?' selected':''}>${f}</option>`).join('')}
+        </select>
+      </td>
+      <td><div class="mpipe">${mpipeHTML(cmd.id, li, ligne.statut)}</div></td>
+    </tr>`).join('');
+
+  return `
+    <div class="flat-view-header">
+      <div class="flat-view-title">Vue globale — ${SL[statut]}</div>
+      <div class="flat-count">${allLignes.length} article${allLignes.length>1?'s':''} • ${fil.length} commande${fil.length>1?'s':''}</div>
+    </div>
+    <table class="flat-table">
+      <thead><tr>
+        <th style="width:110px">Commande</th>
+        <th style="width:60px">Mockup</th>
+        <th style="width:70px">Type</th>
+        <th>Article / Marquage</th>
+        <th style="text-align:center;width:40px">Qté</th>
+        <th style="width:140px">Fournisseur</th>
+        <th>Statut</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
 function render(){
   const q=document.getElementById('q').value.toLowerCase();
   const fil=cmds.filter(c=>{
@@ -450,9 +514,12 @@ function render(){
     if(['simulation','validation','production','pret','livre'].includes(aF))return(c.lignes||[]).some(l=>(l.statut||'simulation')===aF);
     return c.paiement===aF;
   });
-  // Si filtre statut actif, ouvrir toutes les cartes
-  if(['simulation','validation','production','pret','livre'].includes(aF)){fil.forEach(c=>{if(!openId)openId=c.id;});}
-  document.getElementById('cards').innerHTML=fil.length?fil.map(cardHTML).join(''):`<div class="empty"><div class="ei">📦</div><h3>${cmds.length?'Aucun résultat':'Aucune commande'}</h3><p style="font-size:13px">Cliquez sur "Importer un BC" pour commencer</p></div>`;
+  const isStatutFilter = ['simulation','validation','production','pret','livre'].includes(aF);
+  if(isStatutFilter){
+    document.getElementById('cards').innerHTML = flatView(fil, aF);
+  } else {
+    document.getElementById('cards').innerHTML=fil.length?fil.map(cardHTML).join(''):`<div class="empty"><div class="ei">📦</div><h3>${cmds.length?'Aucun résultat':'Aucune commande'}</h3><p style="font-size:13px">Cliquez sur "Importer un BC" pour commencer</p></div>`;
+  }
   document.getElementById('s-total').textContent=cmds.length;
   document.getElementById('s-enc').textContent=cmds.filter(c=>bcS(c)!=='livre').length;
   document.getElementById('s-ca').textContent=fmt(cmds.reduce((s,c)=>s+(c.totalTTC||0),0));
