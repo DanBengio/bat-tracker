@@ -292,7 +292,7 @@ const BC={simulation:'bs',validation:'bv',production:'bp',pret:'bpr',livre:'bl',
 
 let cmds=[];
 
-let fournisseurs=['Imagiat','Maroc Business Company','Interne'];
+let fournisseurs=[];// chargés depuis Supabase
 let aF='all',aFF='all',openId=null,ligneCount=0;
 
 const fmt=n=>(n||0).toLocaleString('fr-FR',{minimumFractionDigits:2})+' DH';
@@ -413,7 +413,7 @@ function cardHTML(cmd){
     <td><strong style="font-size:12px">${l.description}</strong>${l.marquage?`<div style="font-size:10px;color:var(--muted);margin-top:2px">${l.marquage}</div>`:''}</td>
     <td style="text-align:center">${l.quantite}</td>
     <td style="text-align:right;color:var(--blue);font-weight:600">${l.totalHT?l.totalHT.toFixed(2)+' DH':'—'}</td>
-    <td><select class="fsel" onchange="setLF('${cmd.id}',${i2},this.value)"><option value="">— Fournisseur</option>${fournisseurs.map(f=>`<option value="${f}"${l.fournisseur===f?' selected':''}>${f}</option>`).join('')}</select></td>
+    <td><select class="fsel" onchange="setLF('${cmd.id}',${i2},this.value)"><option value="">— Fournisseur</option>${fournisseurs.map(f=>`<option value="${f.nom}"${l.fournisseur===f.nom?' selected':''}>${f.nom}</option>`).join('')}</select></td>
     <td><div class="mpipe">${mpipeHTML(cmd.id,i2,l.statut)}</div></td>
   </tr>`;}).join('');
 
@@ -609,7 +609,7 @@ function render(){
   document.getElementById('fc-all').textContent=cmds.length;
   ['simulation','validation','production','pret','livre'].forEach(k=>{const e=document.getElementById('fc-'+k);if(e)e.textContent=lc[k]||0;});
   ['attente','partiel','paye'].forEach(k=>{const e=document.getElementById('fc-'+k);if(e)e.textContent=pc[k]||0;});
-  document.getElementById('ff').innerHTML=`<button class="fb${aFF==='all'?' active':''}" onclick="setFF('all',this)">Tous <span class="fc">${cmds.length}</span></button>`+fournisseurs.map(f=>{const n=cmds.filter(c=>(c.lignes||[]).some(l=>l.fournisseur===f)).length;return`<button class="fb${aFF===f?' active':''}" onclick="setFF('${f}',this)">${f} <span class="fc">${n}</span></button>`;}).join('');
+  document.getElementById('ff').innerHTML=`<button class="fb${aFF==='all'?' active':''}" onclick="setFF('all',this)">Tous <span class="fc">${cmds.length}</span></button>`+fournisseurs.map(f=>{const n=cmds.filter(c=>(c.lignes||[]).some(l=>l.fournisseur===f.nom)).length;return`<button class="fb${aFF===f.nom?' active':''}" onclick="setFF('${f.nom}',this)">${f.nom} <span class="fc">${n}</span></button>`;}).join('');
 }
 
 function toggle(id){openId=openId===id?null:id;render();}
@@ -661,9 +661,42 @@ function submitBC(){
 
 function openFM(){renderFL();document.getElementById('fm').classList.remove('hidden');}
 function closeFM(){document.getElementById('fm').classList.add('hidden');render();}
-function renderFL(){document.getElementById('flist').innerHTML=fournisseurs.length?fournisseurs.map((f,i)=>`<div class="fi"><span>${f}</span><button class="db" onclick="delF(${i})">✕</button></div>`).join(''):'<p style="color:var(--muted);font-size:12px;margin-bottom:10px">Aucun fournisseur</p>';}
-function addF(){const inp=document.getElementById('nf');const v=inp.value.trim();if(!v||fournisseurs.includes(v))return;fournisseurs.push(v);inp.value='';renderFL();showToast(`"${v}" ajouté`);}
-function delF(i){fournisseurs.splice(i,1);renderFL();}
+function renderFL(){
+  document.getElementById('flist').innerHTML=fournisseurs.length
+    ?fournisseurs.map(f=>`<div class="fi"><span>${f.nom}</span><button class="db" onclick="delF('${f.id}','${f.nom}')">✕</button></div>`).join('')
+    :'<p style="color:var(--muted);font-size:12px;margin-bottom:10px">Aucun fournisseur</p>';
+}
+async function addF(){
+  const inp=document.getElementById('nf');
+  const v=inp.value.trim();
+  if(!v||fournisseurs.find(f=>f.nom===v))return;
+  inp.value='';
+  try{
+    const r=await fetch('/api/save-fournisseur',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({nom:v})});
+    const data=await r.json();
+    if(!r.ok)throw new Error(data.error);
+    fournisseurs.push({id:data.id,nom:data.nom});
+    fournisseurs.sort((a,b)=>a.nom.localeCompare(b.nom));
+    renderFL();render();showToast(`"${v}" ajouté`);
+  }catch(err){showToast('Erreur : '+err.message);}
+}
+async function delF(id,nom){
+  fournisseurs=fournisseurs.filter(f=>f.id!==id);
+  renderFL();render();
+  try{
+    await fetch('/api/delete-fournisseur',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});
+    showToast(`"${nom}" supprimé`);
+  }catch(err){showToast('Erreur suppression : '+err.message);}
+}
+async function loadFournisseurs(){
+  try{
+    const r=await fetch('/api/get-fournisseurs');
+    const data=await r.json();
+    if(!r.ok)throw new Error(data.error);
+    fournisseurs=data;
+    render();
+  }catch(err){showToast('Erreur chargement fournisseurs : '+err.message);}
+}
 function showToast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),3000);}
 document.getElementById('import-modal').addEventListener('click',e=>{if(e.target===document.getElementById('import-modal'))closeImport();});
 document.getElementById('fm').addEventListener('click',e=>{if(e.target===document.getElementById('fm'))closeFM();});
@@ -769,7 +802,7 @@ async function processPDF(file){
   }
 }
 
-loadBCs();
+loadFournisseurs().then(()=>loadBCs());
 </script>
 </body>
 </html>
