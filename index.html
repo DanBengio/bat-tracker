@@ -505,6 +505,54 @@ function flatView(fil, statut) {
     </table>`;
 }
 
+function flatViewFournisseur(fil, fournisseur) {
+  const allLignes = [];
+  fil.forEach(cmd => {
+    (cmd.lignes || []).forEach((l, i) => {
+      if (l.fournisseur === fournisseur) {
+        allLignes.push({ cmd, ligne: l, li: i });
+      }
+    });
+  });
+
+  if (!allLignes.length) return `<div class="empty"><div class="ei">📦</div><h3>Aucun article chez ${fournisseur}</h3></div>`;
+
+  const rows = allLignes.map(({ cmd, ligne, li }) => `
+    <tr>
+      <td>
+        <div class="flat-ref" style="cursor:pointer" onclick="setFF('all',document.querySelector('#ff .fb.active'));toggle('${cmd.id}')">${cmd.reference}</div>
+        <div class="flat-client">${cmd.client}</div>
+      </td>
+      <td>${mockupCell(cmd.id, li, ligne.mockup)}</td>
+      <td><span class="tpill ${ligne.type==='goodies'?'tg':'tt'}">${ligne.type}</span></td>
+      <td>
+        <strong>${ligne.description}</strong>
+        ${ligne.marquage ? `<div style="font-size:10px;color:var(--muted);margin-top:2px">${ligne.marquage}</div>` : ''}
+      </td>
+      <td style="text-align:center">${ligne.quantite}</td>
+      <td><span class="badge ${BC[ligne.statut||'simulation']}">${SL[ligne.statut||'simulation']}</span></td>
+      <td><div class="mpipe">${mpipeHTML(cmd.id, li, ligne.statut)}</div></td>
+    </tr>`).join('');
+
+  return `
+    <div class="flat-view-header">
+      <div class="flat-view-title">Vue globale — ${fournisseur}</div>
+      <div class="flat-count">${allLignes.length} article${allLignes.length>1?'s':''} • ${fil.length} commande${fil.length>1?'s':''}</div>
+    </div>
+    <table class="flat-table">
+      <thead><tr>
+        <th style="width:110px">Commande</th>
+        <th style="width:60px">Mockup</th>
+        <th style="width:70px">Type</th>
+        <th>Article / Marquage</th>
+        <th style="text-align:center;width:40px">Qté</th>
+        <th style="width:100px">Statut</th>
+        <th>Pipeline</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
 function render(){
   const q=document.getElementById('q').value.toLowerCase();
   const fil=cmds.filter(c=>{
@@ -515,8 +563,11 @@ function render(){
     return c.paiement===aF;
   });
   const isStatutFilter = ['simulation','validation','production','pret','livre'].includes(aF);
+  const isFournisseurFilter = aFF !== 'all';
   if(isStatutFilter){
     document.getElementById('cards').innerHTML = flatView(fil, aF);
+  } else if(isFournisseurFilter){
+    document.getElementById('cards').innerHTML = flatViewFournisseur(fil, aFF);
   } else {
     document.getElementById('cards').innerHTML=fil.length?fil.map(cardHTML).join(''):`<div class="empty"><div class="ei">📦</div><h3>${cmds.length?'Aucun résultat':'Aucune commande'}</h3><p style="font-size:13px">Cliquez sur "Importer un BC" pour commencer</p></div>`;
   }
