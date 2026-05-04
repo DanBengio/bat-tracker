@@ -146,6 +146,9 @@
   .flat-table td{padding:9px 12px;border-bottom:1px solid var(--border);vertical-align:middle;}
   .flat-table tr:last-child td{border-bottom:none;}
   .flat-table tbody tr:hover td{background:rgba(0,135,183,0.02);}
+  .tailles-grid{display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;}
+  .taille-pill{background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:2px 7px;font-size:9px;font-weight:600;color:var(--text);white-space:nowrap;}
+  .taille-pill span{color:var(--blue);margin-left:3px;}
   .flat-ref{font-family:'Raleway',sans-serif;font-weight:700;font-size:11px;color:var(--blue);white-space:nowrap;}
   .flat-client{font-size:10px;color:var(--muted);margin-top:2px;}
   .flat-view-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
@@ -368,6 +371,13 @@ function closeLightbox() {
   document.getElementById('lightbox').classList.add('hidden');
 }
 
+function taillesHTML(tailles) {
+  if (!tailles) return '';
+  const entries = Object.entries(tailles).filter(([k, v]) => v > 0);
+  if (!entries.length) return '';
+  return `<div class="tailles-grid">${entries.map(([k, v]) => `<div class="taille-pill">${k}<span>×${v}</span></div>`).join('')}</div>`;
+}
+
 function mpipeHTML(cid,li,stat){
   const cur=SIDX[stat||'simulation']??0;
   return STEPS.map((s,i)=>{const c=i<cur?'done':i===cur?'current':'';return`<button class="ms ${c}" onclick="setLS('${cid}',${li},'${s.key}')">${i<cur?'✓ ':''}${s.label}</button>`;}).join('');
@@ -475,6 +485,7 @@ function flatView(fil, statut) {
       <td>
         <strong>${ligne.description}</strong>
         ${ligne.marquage ? `<div style="font-size:10px;color:var(--muted);margin-top:2px">${ligne.marquage}</div>` : ''}
+        ${taillesHTML(ligne.tailles)}
       </td>
       <td style="text-align:center">${ligne.quantite}</td>
       <td>
@@ -528,6 +539,7 @@ function flatViewFournisseur(fil, fournisseur) {
       <td>
         <strong>${ligne.description}</strong>
         ${ligne.marquage ? `<div style="font-size:10px;color:var(--muted);margin-top:2px">${ligne.marquage}</div>` : ''}
+        ${taillesHTML(ligne.tailles)}
       </td>
       <td style="text-align:center">${ligne.quantite}</td>
       <td><span class="badge ${BC[ligne.statut||'simulation']}">${SL[ligne.statut||'simulation']}</span></td>
