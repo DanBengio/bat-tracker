@@ -34,12 +34,16 @@ export default async function handler(req, res) {
       "type": "goodies ou textile",
       "marquage": "technique de marquage",
       "quantite": 0,
-      "totalHT": 0.00
+      "totalHT": 0.00,
+      "tailles": {"XS": 0, "S": 0, "M": 0, "L": 0, "XL": 0, "XXL": 0}
     }
   ]
 }
-Type = "textile" si c'est un vetement (polo, t-shirt, veste...), sinon "goodies".
-Exclure les frais techniques (FT...). Retourner UNIQUEMENT le JSON brut, sans aucun texte avant ou apres.` }
+Règles :
+- Type = "textile" si c'est un vêtement (polo, t-shirt, veste, sweat...), sinon "goodies"
+- Exclure les frais techniques (FT...)
+- Pour le champ "tailles" : extraire le détail des tailles si présent dans le BC (ex: S:5, M:10, L:8). Si pas de tailles (goodies ou taille unique), mettre tailles: null
+- Retourner UNIQUEMENT le JSON brut, sans aucun texte avant ou après` }
           ]
         }]
       })
