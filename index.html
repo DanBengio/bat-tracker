@@ -79,8 +79,11 @@
   .mockup-cell{text-align:center;}
   .mockup-thumb{width:44px;height:44px;border-radius:5px;object-fit:cover;cursor:pointer;border:1px solid var(--border);transition:transform 0.15s;display:block;margin:0 auto;}
   .mockup-thumb:hover{transform:scale(1.08);box-shadow:0 2px 8px rgba(0,0,0,0.15);}
-  .mockup-upload{width:44px;height:44px;border:1.5px dashed var(--border);border-radius:5px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted);font-size:18px;transition:all 0.15s;margin:0 auto;background:var(--surface2);}
+  .mockup-upload{width:54px;height:54px;border:1.5px dashed var(--border);border-radius:5px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;color:var(--muted);font-size:16px;transition:all 0.15s;margin:0 auto;background:var(--surface2);gap:2px;}
   .mockup-upload:hover{border-color:var(--blue);color:var(--blue);background:rgba(0,135,183,0.04);}
+  .mockup-upload.dragover{border-color:var(--blue);background:rgba(0,135,183,0.08);transform:scale(1.05);}
+  .mockup-thumb{width:54px;height:54px;border-radius:5px;object-fit:cover;cursor:pointer;border:1px solid var(--border);transition:transform 0.15s;display:block;margin:0 auto;}
+  .mockup-thumb:hover{transform:scale(1.05);box-shadow:0 2px 8px rgba(0,0,0,0.15);}
   .mockup-upload input{display:none;}
 
   /* LIGHTBOX */
@@ -297,17 +300,61 @@ function bcS(cmd){if(!cmd.lignes||!cmd.lignes.length)return'simulation';return S
 
 function mockupCell(cmdId, li, mockup) {
   if(mockup) {
-    return `<div class="mockup-cell" id="mockup-${cmdId}-${li}">
-      <img class="mockup-thumb" src="${mockup}" alt="Mockup" onclick="openLightbox('${mockup}')" title="Voir en grand">
+    return `<div class="mockup-cell" id="mockup-${cmdId}-${li}"
+      ondragover="event.preventDefault();this.querySelector('img').style.opacity='0.6'"
+      ondragleave="this.querySelector('img').style.opacity='1'"
+      ondrop="event.preventDefault();this.querySelector('img').style.opacity='1';handleMockupDrop(event,'${cmdId}',${li})">
+      <img class="mockup-thumb" src="${mockup}" alt="Mockup" onclick="openLightbox('${mockup}')" title="Voir en grand — glisser pour remplacer">
       <div style="font-size:8px;color:var(--blue);margin-top:3px;cursor:pointer" onclick="uploadMockup('${cmdId}',${li})">Changer</div>
     </div>`;
   }
   return `<div class="mockup-cell" id="mockup-${cmdId}-${li}">
-    <div class="mockup-upload" onclick="uploadMockup('${cmdId}',${li})" title="Uploader le mockup">
+    <div class="mockup-upload"
+      onclick="uploadMockup('${cmdId}',${li})"
+      ondragover="event.preventDefault();this.classList.add('dragover')"
+      ondragleave="this.classList.remove('dragover')"
+      ondrop="event.preventDefault();this.classList.remove('dragover');handleMockupDrop(event,'${cmdId}',${li})"
+      title="Cliquer ou glisser une image">
       <span>＋</span>
+      <span style="font-size:8px;line-height:1;text-align:center">Glisser<br>ou cliquer</span>
     </div>
-    <div style="font-size:8px;color:var(--muted);margin-top:3px">Mockup</div>
   </div>`;
+}
+
+function handleMockupDrop(event, cmdId, li) {
+  const file = event.dataTransfer.files[0];
+  if (!file || !file.type.startsWith('image/')) { showToast('Fichier image requis'); return; }
+  processMockupFile(file, cmdId, li);
+}
+
+function processMockupFile(file, cmdId, li) {
+  const img = new Image();
+  const url = URL.createObjectURL(file);
+  img.onload = () => {
+    const canvas = document.createElement('canvas');
+    const MAX = 400;
+    let w = img.width, h = img.height;
+    if (w > MAX || h > MAX) {
+      if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
+      else { w = Math.round(w * MAX / h); h = MAX; }
+    }
+    canvas.width = w; canvas.height = h;
+    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+    URL.revokeObjectURL(url);
+    const compressed = canvas.toDataURL('image/jpeg', 0.75);
+    const c = cmds.find(x => x.id === cmdId);
+    if (c && c.lignes[li]) {
+      c.lignes[li].mockup = compressed;
+      const cell = document.getElementById(`mockup-${cmdId}-${li}`);
+      if (cell) {
+        cell.innerHTML = mockupCell(cmdId, li, compressed);
+      }
+      updateMockupCounter(cmdId);
+      scheduleSave(c);
+      showToast(`✓ Mockup uploadé pour ${c.lignes[li].description}`);
+    }
+  };
+  img.src = url;
 }
 
 function uploadMockup(cmdId, li) {
@@ -317,36 +364,7 @@ function uploadMockup(cmdId, li) {
   input.onchange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    // Redimensionner l'image avant stockage pour éviter les ralentissements
-    const img = new Image();
-    const url = URL.createObjectURL(file);
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      const MAX = 400;
-      let w = img.width, h = img.height;
-      if (w > MAX || h > MAX) {
-        if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
-        else { w = Math.round(w * MAX / h); h = MAX; }
-      }
-      canvas.width = w; canvas.height = h;
-      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-      URL.revokeObjectURL(url);
-      const compressed = canvas.toDataURL('image/jpeg', 0.75);
-      const c = cmds.find(x => x.id === cmdId);
-      if (c && c.lignes[li]) {
-        c.lignes[li].mockup = compressed;
-        // Mise à jour ciblée — on ne retouche que la cellule mockup, pas tout le render
-        const cell = document.getElementById(`mockup-${cmdId}-${li}`);
-        if (cell) {
-          cell.innerHTML = `<img class="mockup-thumb" src="${compressed}" alt="Mockup" onclick="openLightbox('${compressed}')" title="Voir en grand"><div style="font-size:8px;color:var(--blue);margin-top:3px;cursor:pointer" onclick="uploadMockup('${cmdId}',${li})">Changer</div>`;
-        }
-        // Mise à jour du compteur + sauvegarde
-        updateMockupCounter(cmdId);
-        scheduleSave(c);
-        showToast(`✓ Mockup uploadé pour ${c.lignes[li].description}`);
-      }
-    };
-    img.src = url;
+    processMockupFile(file, cmdId, li);
   };
   input.click();
 }
