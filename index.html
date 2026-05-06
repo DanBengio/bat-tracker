@@ -427,7 +427,7 @@ function cardHTML(cmd){
 
   return`<div class="card${open?' open':''}" id="card-${cmd.id}">
   <div class="card-hdr" onclick="toggle('${cmd.id}')">
-    <div class="cref">${cmd.reference}<div style="font-size:9px;color:var(--muted);font-weight:400;margin-top:1px">${cmd.date}</div></div>
+    <div class="cref">${cmd.reference}${urgencyFlag(cmd)}<div style="font-size:9px;color:var(--muted);font-weight:400;margin-top:1px">${cmd.date}</div></div>
     <div class="ccli">
       <div>${cmd.client}</div>
       <div style="display:flex;gap:14px;margin-top:4px;flex-wrap:wrap;font-size:10px;color:var(--muted)">
@@ -477,6 +477,7 @@ function cardHTML(cmd){
       <a class="btn bwa" href="https://wa.me/?text=${encodeURIComponent(waV)}" target="_blank">👤 Validation client</a>
       <a class="btn bwa" href="https://wa.me/?text=${encodeURIComponent(waR)}" target="_blank">📦 Commande prête</a>
       ${cmd.archive?`<button class="btn" style="border-color:rgba(0,135,183,0.3);color:var(--blue);background:rgba(0,135,183,0.06)" onclick="toggleArchive('${cmd.id}')">↩ Désarchiver</button>`:`<button class="btn" style="border-color:rgba(120,120,120,0.3);color:var(--muted);background:rgba(120,120,120,0.05)" onclick="toggleArchive('${cmd.id}')">🗄 Archiver</button>`}
+      <button class="btn" style="border-color:rgba(0,135,183,0.4);color:var(--blue);background:rgba(0,135,183,0.07);font-weight:700" onclick="printFicheProd('${cmd.id}')">🖨 Fiche prod</button>
       <button class="btn br" onclick="delCmd('${cmd.id}')">✕ Supprimer</button>
     </div>
   </div>
@@ -587,6 +588,30 @@ function flatViewFournisseur(fil, fournisseur) {
     </table>`;
 }
 
+function urgencyDays(cmd){
+  if(!cmd.dateLivraison)return null;
+  const d=new Date(cmd.dateLivraison);
+  if(isNaN(d))return null;
+  const diff=Math.ceil((d-new Date())/(1000*60*60*24));
+  return diff;
+}
+function urgencyFlag(cmd){
+  const d=urgencyDays(cmd);
+  if(d===null)return '';
+  if(d<=5)return '<span title="Urgent — moins de 5 jours" style="font-size:14px;margin-left:6px">🔴</span>';
+  if(d<=10)return '<span title="Attention — moins de 10 jours" style="font-size:14px;margin-left:6px">🟠</span>';
+  return '';
+}
+function sortByUrgency(list){
+  return [...list].sort((a,b)=>{
+    const da=urgencyDays(a),db=urgencyDays(b);
+    if(da===null&&db===null)return 0;
+    if(da===null)return 1;
+    if(db===null)return -1;
+    return da-db;
+  });
+}
+
 function render(){
   const q=document.getElementById('q').value.toLowerCase();
   const fil=cmds.filter(c=>{
@@ -600,12 +625,13 @@ function render(){
   });
   const isStatutFilter = ['simulation','validation','production','pret','livre'].includes(aF);
   const isFournisseurFilter = aFF !== 'all';
+  const filSorted = sortByUrgency(fil);
   if(isStatutFilter){
-    document.getElementById('cards').innerHTML = flatView(fil, aF);
+    document.getElementById('cards').innerHTML = flatView(filSorted, aF);
   } else if(isFournisseurFilter){
-    document.getElementById('cards').innerHTML = flatViewFournisseur(fil, aFF);
+    document.getElementById('cards').innerHTML = flatViewFournisseur(filSorted, aFF);
   } else {
-    document.getElementById('cards').innerHTML=fil.length?fil.map(cardHTML).join(''):`<div class="empty"><div class="ei">📦</div><h3>${cmds.length?'Aucun résultat':'Aucune commande'}</h3><p style="font-size:13px">Cliquez sur "Importer un BC" pour commencer</p></div>`;
+    document.getElementById('cards').innerHTML=filSorted.length?filSorted.map(cardHTML).join(''):`<div class="empty"><div class="ei">📦</div><h3>${cmds.length?'Aucun résultat':'Aucune commande'}</h3><p style="font-size:13px">Cliquez sur "Importer un BC" pour commencer</p></div>`;
   }
   document.getElementById('s-total').textContent=cmds.filter(c=>!c.archive).length;
   document.getElementById('s-enc').textContent=cmds.filter(c=>!c.archive&&bcS(c)!=='livre').length;
@@ -626,6 +652,109 @@ function setF(id,field,val){const c=cmds.find(x=>x.id===id);if(!c)return;c[field
 function setLS(cid,li,stat){const c=cmds.find(x=>x.id===cid);if(!c||!c.lignes[li])return;c.lignes[li].statut=stat;render();scheduleSave(c);showToast(`✓ ${c.lignes[li].description} → ${SL[stat]}`);}
 function setLF(cid,li,val){const c=cmds.find(x=>x.id===cid);if(!c||!c.lignes[li])return;c.lignes[li].fournisseur=val;render();scheduleSave(c);}
 function toggleArchive(id){const c=cmds.find(x=>x.id===id);if(!c)return;c.archive=!c.archive;if(openId===id)openId=null;scheduleSave(c);render();showToast(c.archive?'📦 BC archivé':'↩ BC désarchivé');}
+function printFicheProd(id){
+  const cmd=cmds.find(x=>x.id===id);
+  if(!cmd)return;
+  const days=urgencyDays(cmd);
+  const urgLabel=days===null?'':(days<=0?`<span style="color:#c0392b;font-weight:700">⚠ DEADLINE DÉPASSÉE</span>`:days<=5?`<span style="color:#c0392b;font-weight:700">🔴 Urgent — ${days}j restants</span>`:days<=10?`<span style="color:#e67e22;font-weight:700">🟠 ${days}j restants</span>`:`<span style="color:#27ae60">${days}j restants</span>`);
+  const lignesRows=(cmd.lignes||[]).map(l=>`
+    <tr>
+      <td style="padding:10px;border-bottom:1px solid #eee;vertical-align:top">
+        ${l.mockup?`<img src="${l.mockup}" style="width:80px;height:80px;object-fit:cover;border-radius:5px;border:1px solid #ddd;display:block;margin-bottom:4px">`:'<div style="width:80px;height:80px;background:#f5f5f5;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:10px;color:#aaa;border:1px solid #ddd;margin-bottom:4px">Pas de mockup</div>'}
+        <div style="font-size:9px;color:#999;text-align:center">${l.description}</div>
+      </td>
+      <td style="padding:10px;border-bottom:1px solid #eee;vertical-align:top">
+        <div style="font-weight:700;font-size:13px;margin-bottom:4px">${l.description}</div>
+        ${l.marquage?`<div style="font-size:11px;color:#555;margin-bottom:4px">📍 ${l.marquage}</div>`:''}
+        <div style="font-size:11px;color:#555">Type : <strong>${l.type}</strong></div>
+        ${l.fournisseur?`<div style="font-size:11px;color:#555;margin-top:2px">Fournisseur : <strong>${l.fournisseur}</strong></div>`:''}
+        ${l.tailles&&Object.keys(l.tailles).length?`<div style="margin-top:6px;font-size:10px;color:#777">Tailles : ${Object.entries(l.tailles).filter(([k,v])=>v>0).map(([k,v])=>`${k}×${v}`).join(' | ')}</div>`:''}
+      </td>
+      <td style="padding:10px;border-bottom:1px solid #eee;text-align:center;vertical-align:top">
+        <div style="font-size:22px;font-weight:700;color:#0087b7">${l.quantite}</div>
+        <div style="font-size:10px;color:#999">unités</div>
+      </td>
+      <td style="padding:10px;border-bottom:1px solid #eee;vertical-align:top">
+        <span style="padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700;text-transform:uppercase;background:${l.statut==='livre'?'#ecf0f1':'rgba(0,135,183,0.1)'};color:${l.statut==='livre'?'#95a5a6':'#005f85'}">${SL[l.statut||'simulation']}</span>
+      </td>
+    </tr>`).join('');
+
+  const win=window.open('','_blank','width=900,height=700');
+  win.document.write(`<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>Fiche Prod — ${cmd.reference}</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{font-family:'Helvetica Neue',Arial,sans-serif;color:#1a2633;background:#fff;padding:30px;}
+    .brand-bar{height:5px;background:linear-gradient(90deg,#87223a 0%,#87223a 33%,#f5be45 33%,#f5be45 66%,#0087b7 66%,#0087b7 100%);margin-bottom:24px;border-radius:2px;}
+    .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;padding-bottom:16px;border-bottom:2px solid #eee;}
+    .logo{font-size:20px;font-weight:700;color:#1a2633;letter-spacing:-0.3px;}
+    .logo span{color:#0087b7;}
+    .ref{font-size:26px;font-weight:700;color:#0087b7;margin-bottom:6px;}
+    .info-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:24px;}
+    .info-box{background:#f8f9fb;border-radius:6px;padding:12px 14px;border:1px solid #eee;}
+    .info-label{font-size:9px;text-transform:uppercase;letter-spacing:1px;color:#999;margin-bottom:4px;}
+    .info-val{font-size:14px;font-weight:700;color:#1a2633;}
+    .info-sub{font-size:11px;color:#555;margin-top:2px;}
+    .section-title{font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#999;margin-bottom:10px;margin-top:20px;}
+    table{width:100%;border-collapse:collapse;}
+    th{background:#f0f4f7;padding:8px 10px;text-align:left;font-size:9px;text-transform:uppercase;letter-spacing:0.8px;color:#666;border-bottom:2px solid #dde4eb;}
+    .mode-badge{display:inline-block;padding:5px 14px;border-radius:4px;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:1px;}
+    .livraison{background:rgba(0,135,183,0.12);color:#005f85;border:1px solid rgba(0,135,183,0.3);}
+    .emporter{background:rgba(135,34,58,0.1);color:#87223a;border:1px solid rgba(135,34,58,0.25);}
+    .footer{margin-top:24px;padding-top:12px;border-top:1px solid #eee;font-size:9px;color:#aaa;display:flex;justify-content:space-between;}
+    @media print{body{padding:15px;}@page{margin:10mm;}}
+  </style></head><body>
+  <div class="brand-bar"></div>
+  <div class="header">
+    <div>
+      <div class="logo">Bar <span>À</span> Textile</div>
+      <div style="font-size:10px;color:#999;margin-top:2px">Fiche de production</div>
+    </div>
+    <div style="text-align:right">
+      <div class="ref">${cmd.reference}</div>
+      <div style="font-size:11px;color:#999">Imprimé le ${new Date().toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'})}</div>
+    </div>
+  </div>
+
+  <div class="info-grid">
+    <div class="info-box">
+      <div class="info-label">Client</div>
+      <div class="info-val">${cmd.client||'—'}</div>
+      ${cmd.contact?`<div class="info-sub">👤 ${cmd.contact}</div>`:''}
+      ${cmd.tel?`<div class="info-sub">📞 ${cmd.tel}</div>`:''}
+    </div>
+    <div class="info-box">
+      <div class="info-label">Date limite de livraison</div>
+      <div class="info-val">${cmd.dateLivraison?new Date(cmd.dateLivraison).toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'}):'Non définie'}</div>
+      <div class="info-sub" style="margin-top:6px">${urgLabel}</div>
+    </div>
+    <div class="info-box">
+      <div class="info-label">Mode de remise</div>
+      <div style="margin-top:6px"><span class="mode-badge ${cmd.livraison==='livraison'?'livraison':'emporter'}">${cmd.livraison==='livraison'?'🚚 Livraison':'🛍 À emporter'}</span></div>
+    </div>
+  </div>
+
+  <div class="section-title">Articles de la commande</div>
+  <table>
+    <thead><tr>
+      <th style="width:100px">Mockup</th>
+      <th>Article / Marquage</th>
+      <th style="text-align:center;width:70px">Quantité</th>
+      <th style="width:100px">Statut</th>
+    </tr></thead>
+    <tbody>${lignesRows}</tbody>
+  </table>
+
+  ${cmd.notes?`<div class="section-title">Notes internes</div><div style="background:#fffbf0;border:1px solid #f5be45;border-radius:6px;padding:12px 14px;font-size:12px;color:#555">${cmd.notes}</div>`:''}
+
+  <div class="footer">
+    <span>Bar À Textile — Document interne production</span>
+    <span>${cmd.reference} • ${(cmd.lignes||[]).length} article(s) • Total TTC : ${fmt(cmd.totalTTC)}</span>
+  </div>
+  <script>window.onload=function(){window.print();}<\/script>
+  </body></html>`);
+  win.document.close();
+}
+
 function delCmd(id){if(!confirm('Supprimer cette commande ?'))return;deleteBC(id);cmds=cmds.filter(c=>c.id!==id);if(openId===id)openId=null;render();showToast('Commande supprimée');}
 
 function openImport(){
