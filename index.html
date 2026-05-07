@@ -485,7 +485,6 @@ function cardHTML(cmd){
 }
 
 function flatView(fil, statut) {
-  // Collecter toutes les lignes du statut avec leur BC
   const allLignes = [];
   fil.forEach(cmd => {
     (cmd.lignes || []).forEach((l, i) => {
@@ -495,13 +494,30 @@ function flatView(fil, statut) {
     });
   });
 
+  // Tri par urgence : les plus proches en premier, sans date en dernier
+  allLignes.sort((a, b) => {
+    const da = urgencyDays(a.cmd), db = urgencyDays(b.cmd);
+    if (da === null && db === null) return 0;
+    if (da === null) return 1;
+    if (db === null) return -1;
+    return da - db;
+  });
+
   if (!allLignes.length) return `<div class="empty"><div class="ei">📦</div><h3>Aucun article en ${SL[statut]}</h3></div>`;
 
-  const rows = allLignes.map(({ cmd, ligne, li }) => `
+  const rows = allLignes.map(({ cmd, ligne, li }) => {
+    const days = urgencyDays(cmd);
+    const flag = days === null ? '' : days <= 5 ? '🔴' : days <= 10 ? '🟠' : '';
+    const dateColor = days === null ? 'var(--muted)' : days <= 5 ? '#c0392b' : days <= 10 ? '#e67e22' : 'var(--muted)';
+    const dateLabel = cmd.dateLivraison
+      ? `<div style="font-size:11px;color:${dateColor};font-weight:600;margin-top:3px">${flag} ${new Date(cmd.dateLivraison).toLocaleDateString('fr-FR',{day:'2-digit',month:'short'})}</div>`
+      : `<div style="font-size:10px;color:var(--muted);margin-top:3px">— pas de date</div>`;
+    return `
     <tr>
       <td>
         <div class="flat-ref" onclick="setFilter('all',document.querySelector('.fb.active'));toggle('${cmd.id}')" style="cursor:pointer">${cmd.reference}</div>
         <div class="flat-client">${cmd.client}</div>
+        ${dateLabel}
       </td>
       <td>${mockupCell(cmd.id, li, ligne.mockup)}</td>
       <td><span class="tpill ${ligne.type==='goodies'?'tg':'tt'}">${ligne.type}</span></td>
@@ -514,11 +530,12 @@ function flatView(fil, statut) {
       <td>
         <select class="fsel" onchange="setLF('${cmd.id}',${li},this.value)">
           <option value="">— Fournisseur</option>
-          ${fournisseurs.map(f => `<option value="${f}"${ligne.fournisseur===f?' selected':''}>${f}</option>`).join('')}
+          ${fournisseurs.map(f => `<option value="${f.nom}"${ligne.fournisseur===f.nom?' selected':''}>${f.nom}</option>`).join('')}
         </select>
       </td>
       <td><div class="mpipe">${mpipeHTML(cmd.id, li, ligne.statut)}</div></td>
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
 
   return `
     <div class="flat-view-header">
@@ -527,7 +544,7 @@ function flatView(fil, statut) {
     </div>
     <table class="flat-table">
       <thead><tr>
-        <th style="width:110px">Commande</th>
+        <th style="width:130px">Commande</th>
         <th style="width:60px">Mockup</th>
         <th style="width:70px">Type</th>
         <th>Article / Marquage</th>
@@ -549,13 +566,29 @@ function flatViewFournisseur(fil, fournisseur) {
     });
   });
 
+  allLignes.sort((a, b) => {
+    const da = urgencyDays(a.cmd), db = urgencyDays(b.cmd);
+    if (da === null && db === null) return 0;
+    if (da === null) return 1;
+    if (db === null) return -1;
+    return da - db;
+  });
+
   if (!allLignes.length) return `<div class="empty"><div class="ei">📦</div><h3>Aucun article chez ${fournisseur}</h3></div>`;
 
-  const rows = allLignes.map(({ cmd, ligne, li }) => `
+  const rows = allLignes.map(({ cmd, ligne, li }) => {
+    const days = urgencyDays(cmd);
+    const flag = days === null ? '' : days <= 5 ? '🔴' : days <= 10 ? '🟠' : '';
+    const dateColor = days === null ? 'var(--muted)' : days <= 5 ? '#c0392b' : days <= 10 ? '#e67e22' : 'var(--muted)';
+    const dateLabel = cmd.dateLivraison
+      ? `<div style="font-size:11px;color:${dateColor};font-weight:600;margin-top:3px">${flag} ${new Date(cmd.dateLivraison).toLocaleDateString('fr-FR',{day:'2-digit',month:'short'})}</div>`
+      : `<div style="font-size:10px;color:var(--muted);margin-top:3px">— pas de date</div>`;
+    return `
     <tr>
       <td>
         <div class="flat-ref" style="cursor:pointer" onclick="setFF('all',document.querySelector('#ff .fb.active'));toggle('${cmd.id}')">${cmd.reference}</div>
         <div class="flat-client">${cmd.client}</div>
+        ${dateLabel}
       </td>
       <td>${mockupCell(cmd.id, li, ligne.mockup)}</td>
       <td><span class="tpill ${ligne.type==='goodies'?'tg':'tt'}">${ligne.type}</span></td>
@@ -567,7 +600,8 @@ function flatViewFournisseur(fil, fournisseur) {
       <td style="text-align:center">${ligne.quantite}</td>
       <td><span class="badge ${BC[ligne.statut||'simulation']}">${SL[ligne.statut||'simulation']}</span></td>
       <td><div class="mpipe">${mpipeHTML(cmd.id, li, ligne.statut)}</div></td>
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
 
   return `
     <div class="flat-view-header">
@@ -576,7 +610,7 @@ function flatViewFournisseur(fil, fournisseur) {
     </div>
     <table class="flat-table">
       <thead><tr>
-        <th style="width:110px">Commande</th>
+        <th style="width:130px">Commande</th>
         <th style="width:60px">Mockup</th>
         <th style="width:70px">Type</th>
         <th>Article / Marquage</th>
