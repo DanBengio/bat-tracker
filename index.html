@@ -542,16 +542,16 @@ function flatView(fil, statut) {
     const days = urgencyDays(cmd);
     const flag = days === null ? '' : days <= 5 ? '🔴' : days <= 10 ? '🟠' : '';
     const dateColor = days === null ? 'var(--muted)' : days <= 5 ? '#c0392b' : days <= 10 ? '#e67e22' : 'var(--muted)';
-    const dateLabel = cmd.dateLivraison
-      ? `<div style="font-size:11px;color:${dateColor};font-weight:600;margin-top:3px">${flag} ${new Date(cmd.dateLivraison).toLocaleDateString('fr-FR',{day:'2-digit',month:'short'})}</div>`
-      : `<div style="font-size:10px;color:var(--muted);margin-top:3px">— pas de date</div>`;
+    const dateCell = cmd.dateLivraison
+      ? `<div style="font-size:12px;color:${dateColor};font-weight:700;white-space:nowrap">${flag} ${new Date(cmd.dateLivraison).toLocaleDateString('fr-FR',{day:'2-digit',month:'short'})}</div>${days!==null&&days<=10?`<div style="font-size:9px;color:${dateColor};margin-top:2px">${days<=0?'Dépassée':`${days}j restants`}</div>`:''}`
+      : `<span style="color:var(--muted);font-size:11px">—</span>`;
     return `
     <tr>
       <td>
         <div class="flat-ref" onclick="setFilter('all',document.querySelector('.fb.active'));toggle('${cmd.id}')" style="cursor:pointer">${cmd.reference}</div>
         <div class="flat-client">${cmd.client}</div>
-        ${dateLabel}
       </td>
+      <td>${dateCell}</td>
       <td>${mockupCell(cmd.id, li, ligne.mockup)}</td>
       <td><span class="tpill ${ligne.type==='goodies'?'tg':'tt'}">${ligne.type}</span></td>
       <td>
@@ -577,12 +577,13 @@ function flatView(fil, statut) {
     </div>
     <table class="flat-table">
       <thead><tr>
-        ${thSort('ref','Commande','130px')}
+        ${thSort('ref','Commande','120px')}
+        ${thSort('date','Deadline','90px')}
         <th style="width:60px">Mockup</th>
         <th style="width:70px">Type</th>
         ${thSort('article','Article / Marquage')}
         ${thSort('qte','Qté','40px')}
-        ${thSort('fournisseur','Fournisseur','140px')}
+        ${thSort('fournisseur','Fournisseur','130px')}
         <th>Statut</th>
       </tr></thead>
       <tbody>${rows}</tbody>
@@ -607,16 +608,16 @@ function flatViewFournisseur(fil, fournisseur) {
     const days = urgencyDays(cmd);
     const flag = days === null ? '' : days <= 5 ? '🔴' : days <= 10 ? '🟠' : '';
     const dateColor = days === null ? 'var(--muted)' : days <= 5 ? '#c0392b' : days <= 10 ? '#e67e22' : 'var(--muted)';
-    const dateLabel = cmd.dateLivraison
-      ? `<div style="font-size:11px;color:${dateColor};font-weight:600;margin-top:3px">${flag} ${new Date(cmd.dateLivraison).toLocaleDateString('fr-FR',{day:'2-digit',month:'short'})}</div>`
-      : `<div style="font-size:10px;color:var(--muted);margin-top:3px">— pas de date</div>`;
+    const dateCell = cmd.dateLivraison
+      ? `<div style="font-size:12px;color:${dateColor};font-weight:700;white-space:nowrap">${flag} ${new Date(cmd.dateLivraison).toLocaleDateString('fr-FR',{day:'2-digit',month:'short'})}</div>${days!==null&&days<=10?`<div style="font-size:9px;color:${dateColor};margin-top:2px">${days<=0?'Dépassée':`${days}j restants`}</div>`:''}`
+      : `<span style="color:var(--muted);font-size:11px">—</span>`;
     return `
     <tr>
       <td>
         <div class="flat-ref" style="cursor:pointer" onclick="setFF('all',document.querySelector('#ff .fb.active'));toggle('${cmd.id}')">${cmd.reference}</div>
         <div class="flat-client">${cmd.client}</div>
-        ${dateLabel}
       </td>
+      <td>${dateCell}</td>
       <td>${mockupCell(cmd.id, li, ligne.mockup)}</td>
       <td><span class="tpill ${ligne.type==='goodies'?'tg':'tt'}">${ligne.type}</span></td>
       <td>
@@ -637,7 +638,8 @@ function flatViewFournisseur(fil, fournisseur) {
     </div>
     <table class="flat-table">
       <thead><tr>
-        ${thSort('ref','Commande','130px')}
+        ${thSort('ref','Commande','120px')}
+        ${thSort('date','Deadline','90px')}
         <th style="width:60px">Mockup</th>
         <th style="width:70px">Type</th>
         ${thSort('article','Article / Marquage')}
