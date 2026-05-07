@@ -202,6 +202,7 @@
     <button class="fb" onclick="setFilter('paye',this)">Réglé <span class="fc" id="fc-paye">0</span></button>
     <div class="fgl">Archives</div>
     <button class="fb" onclick="setFilter('archive',this)">📦 Archivés <span class="fc" id="fc-archive">0</span></button>
+    <button class="fb" onclick="setFilter('attente-reglement',this)">⏳ Attente de règlement <span class="fc" id="fc-attente-reglement">0</span></button>
     <div class="fgl">Fournisseur</div>
     <div id="ff"></div>
   </aside>
@@ -481,7 +482,7 @@ function cardHTML(cmd){
       <a class="btn bwa" href="https://wa.me/?text=${encodeURIComponent(waP)}" target="_blank">🏭 Notifier prod</a>
       <a class="btn bwa" href="https://wa.me/?text=${encodeURIComponent(waV)}" target="_blank">👤 Validation client</a>
       <a class="btn bwa" href="https://wa.me/?text=${encodeURIComponent(waR)}" target="_blank">📦 Commande prête</a>
-      ${cmd.archive?`<button class="btn" style="border-color:rgba(0,135,183,0.3);color:var(--blue);background:rgba(0,135,183,0.06)" onclick="toggleArchive('${cmd.id}')">↩ Désarchiver</button>`:`<button class="btn" style="border-color:rgba(120,120,120,0.3);color:var(--muted);background:rgba(120,120,120,0.05)" onclick="toggleArchive('${cmd.id}')">🗄 Archiver</button>`}
+      ${archiveBtn(cmd)}
       <button class="btn" style="border-color:rgba(0,135,183,0.4);color:var(--blue);background:rgba(0,135,183,0.07);font-weight:700" onclick="printFicheProd('${cmd.id}')">🖨 Fiche prod</button>
       <button class="btn br" onclick="delCmd('${cmd.id}')">✕ Supprimer</button>
     </div>
@@ -678,8 +679,9 @@ function sortByUrgency(list){
 function render(){
   const q=document.getElementById('q').value.toLowerCase();
   const fil=cmds.filter(c=>{
-    if(aF==='archive') return c.archive===true;
-    if(c.archive) return false;
+    if(aF==='archive') return c.archive===true&&!c.attenteReglement;
+    if(aF==='attente-reglement') return c.attenteReglement===true;
+    if(c.archive||c.attenteReglement) return false;
     if(q&&!c.reference.toLowerCase().includes(q)&&!(c.client||'').toLowerCase().includes(q))return false;
     if(aFF!=='all'&&!(c.lignes||[]).some(l=>l.fournisseur===aFF))return false;
     if(aF==='all')return true;
@@ -696,15 +698,17 @@ function render(){
   } else {
     document.getElementById('cards').innerHTML=filSorted.length?filSorted.map(cardHTML).join(''):`<div class="empty"><div class="ei">📦</div><h3>${cmds.length?'Aucun résultat':'Aucune commande'}</h3><p style="font-size:13px">Cliquez sur "Importer un BC" pour commencer</p></div>`;
   }
-  document.getElementById('s-total').textContent=cmds.filter(c=>!c.archive).length;
-  document.getElementById('s-enc').textContent=cmds.filter(c=>!c.archive&&bcS(c)!=='livre').length;
+  const activeOnly=cmds.filter(c=>!c.archive&&!c.attenteReglement);
+  document.getElementById('s-total').textContent=activeOnly.length;
+  document.getElementById('s-enc').textContent=activeOnly.filter(c=>bcS(c)!=='livre').length;
   document.getElementById('s-ca').textContent=fmt(cmds.filter(c=>!c.archive).reduce((s,c)=>s+(c.totalTTC||0),0));
-  const lc={};cmds.filter(c=>!c.archive).forEach(c=>(c.lignes||[]).forEach(l=>{const s=l.statut||'simulation';lc[s]=(lc[s]||0)+1;}));
-  const pc={attente:0,partiel:0,paye:0};cmds.filter(c=>!c.archive).forEach(c=>{if(pc[c.paiement]!==undefined)pc[c.paiement]++;});
-  document.getElementById('fc-all').textContent=cmds.filter(c=>!c.archive).length;
+  const lc={};activeOnly.forEach(c=>(c.lignes||[]).forEach(l=>{const s=l.statut||'simulation';lc[s]=(lc[s]||0)+1;}));
+  const pc={attente:0,partiel:0,paye:0};activeOnly.forEach(c=>{if(pc[c.paiement]!==undefined)pc[c.paiement]++;});
+  document.getElementById('fc-all').textContent=activeOnly.length;
   ['simulation','validation','production','pret','livre'].forEach(k=>{const e=document.getElementById('fc-'+k);if(e)e.textContent=lc[k]||0;});
   ['attente','partiel','paye'].forEach(k=>{const e=document.getElementById('fc-'+k);if(e)e.textContent=pc[k]||0;});
-  const ea=document.getElementById('fc-archive');if(ea)ea.textContent=cmds.filter(c=>c.archive).length;
+  const ea=document.getElementById('fc-archive');if(ea)ea.textContent=cmds.filter(c=>c.archive&&!c.attenteReglement).length;
+  const ear=document.getElementById('fc-attente-reglement');if(ear)ear.textContent=cmds.filter(c=>c.attenteReglement).length;
   document.getElementById('ff').innerHTML=`<button class="fb${aFF==='all'?' active':''}" onclick="setFF('all',this)">Tous <span class="fc">${cmds.length}</span></button>`+fournisseurs.map(f=>{const n=cmds.filter(c=>(c.lignes||[]).some(l=>l.fournisseur===f.nom)).length;return`<button class="fb${aFF===f.nom?' active':''}" onclick="setFF('${f.nom}',this)">${f.nom} <span class="fc">${n}</span></button>`;}).join('');
 }
 
@@ -712,8 +716,78 @@ function toggle(id){openId=openId===id?null:id;render();}
 function setFilter(f,btn){aF=f;document.querySelectorAll('.sidebar .fb').forEach(b=>b.classList.remove('active'));btn.classList.add('active');render();}
 function setFF(f,btn){aFF=f;document.querySelectorAll('#ff .fb').forEach(b=>b.classList.remove('active'));if(btn)btn.classList.add('active');render();}
 function setF(id,field,val){const c=cmds.find(x=>x.id===id);if(!c)return;c[field]=val;render();scheduleSave(c);}
-function setLS(cid,li,stat){const c=cmds.find(x=>x.id===cid);if(!c||!c.lignes[li])return;c.lignes[li].statut=stat;render();scheduleSave(c);showToast(`✓ ${c.lignes[li].description} → ${SL[stat]}`);}
+function isFullyLivre(cmd){
+  const lignes=cmd.lignes||[];
+  return lignes.length>0&&lignes.every(l=>(l.statut||'simulation')==='livre');
+}
+
+function autoArchiveCheck(cmd){
+  if(!isFullyLivre(cmd))return; // pas encore tout livré, rien à faire
+  if(cmd.paiement==='paye'){
+    // Réglé + tout livré → archivé classique
+    if(!cmd.archive){
+      cmd.archive=true;
+      cmd.archiveType=null;
+      if(openId===cmd.id)openId=null;
+      scheduleSave(cmd);
+      showToast('✅ BC livré & réglé — archivé automatiquement');
+    }
+  } else {
+    // Non réglé + tout livré → attente de règlement
+    if(!cmd.attenteReglement){
+      cmd.attenteReglement=true;
+      cmd.archive=false;
+      if(openId===cmd.id)openId=null;
+      scheduleSave(cmd);
+      showToast('⏳ BC livré — en attente de règlement');
+    }
+  }
+}
+
+function setLS(cid,li,stat){
+  const c=cmds.find(x=>x.id===cid);
+  if(!c||!c.lignes[li])return;
+  c.lignes[li].statut=stat;
+  autoArchiveCheck(c);
+  render();
+  scheduleSave(c);
+  showToast(`✓ ${c.lignes[li].description} → ${SL[stat]}`);
+}
+
+function setF(id,field,val){
+  const c=cmds.find(x=>x.id===id);
+  if(!c)return;
+  c[field]=val;
+  // Si on change le paiement à "réglé" sur un BC en attente de règlement → archivage classique
+  if(field==='paiement'&&val==='paye'&&c.attenteReglement){
+    c.attenteReglement=false;
+    c.archive=true;
+    if(openId===id)openId=null;
+    showToast('✅ Paiement réglé — BC archivé définitivement');
+  }
+  // Si on change le paiement à "réglé" sur un BC fully livré pas encore basculé
+  if(field==='paiement'&&val==='paye'&&isFullyLivre(c)&&!c.archive){
+    c.attenteReglement=false;
+    c.archive=true;
+    if(openId===id)openId=null;
+    showToast('✅ BC livré & réglé — archivé automatiquement');
+  }
+  render();
+  scheduleSave(c);
+}
 function setLF(cid,li,val){const c=cmds.find(x=>x.id===cid);if(!c||!c.lignes[li])return;c.lignes[li].fournisseur=val;render();scheduleSave(c);}
+function archiveBtn(cmd){
+  if(cmd.attenteReglement)return`<button class="btn" style="border-color:rgba(245,190,69,0.5);color:#a07a1a;background:rgba(245,190,69,0.08);font-weight:700" onclick="sortirAttenteReglement('${cmd.id}')">↩ Remettre en cours</button>`;
+  if(cmd.archive)return`<button class="btn" style="border-color:rgba(0,135,183,0.3);color:var(--blue);background:rgba(0,135,183,0.06)" onclick="toggleArchive('${cmd.id}')">↩ Désarchiver</button>`;
+  return`<button class="btn" style="border-color:rgba(120,120,120,0.3);color:var(--muted);background:rgba(120,120,120,0.05)" onclick="toggleArchive('${cmd.id}')">🗄 Archiver</button>`;
+}
+function sortirAttenteReglement(id){
+  const c=cmds.find(x=>x.id===id);if(!c)return;
+  c.attenteReglement=false;
+  (c.lignes||[]).forEach(l=>{if((l.statut||'simulation')==='livre')l.statut='pret';});
+  scheduleSave(c);render();
+  showToast('↩ BC remis en cours de production');
+}
 function toggleArchive(id){const c=cmds.find(x=>x.id===id);if(!c)return;c.archive=!c.archive;if(openId===id)openId=null;scheduleSave(c);render();showToast(c.archive?'📦 BC archivé':'↩ BC désarchivé');}
 function printFicheProd(id){
   const cmd=cmds.find(x=>x.id===id);
