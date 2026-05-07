@@ -146,6 +146,11 @@
   @keyframes spin{to{transform:rotate(360deg);}}
   .flat-table{width:100%;border-collapse:collapse;font-size:12px;background:var(--surface);border-radius:8px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.05);}
   .flat-table th{padding:9px 12px;text-align:left;font-size:9px;letter-spacing:0.8px;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border);font-weight:600;background:var(--surface2);}
+  .flat-table th.sortable{cursor:pointer;user-select:none;white-space:nowrap;}
+  .flat-table th.sortable:hover{color:var(--blue);background:#e8f4f9;}
+  .flat-table th.sort-active{color:var(--blue);}
+  .sort-arrow{display:inline-block;margin-left:4px;opacity:0.5;font-size:8px;}
+  .sort-arrow.active{opacity:1;color:var(--blue);}
   .flat-table td{padding:9px 12px;border-bottom:1px solid var(--border);vertical-align:middle;}
   .flat-table tr:last-child td{border-bottom:none;}
   .flat-table tbody tr:hover td{background:rgba(0,135,183,0.02);}
@@ -293,9 +298,9 @@ const PL={attente:'En attente',partiel:'Partiel',paye:'Réglé'};
 const BC={simulation:'bs',validation:'bv',production:'bp',pret:'bpr',livre:'bl',attente:'bat',partiel:'bpa',paye:'bpy'};
 
 let cmds=[];
-
-let fournisseurs=[];// chargés depuis Supabase
+let fournisseurs=[];
 let aF='all',aFF='all',openId=null,ligneCount=0;
+let sortCol='date',sortDir=1; // colonne de tri active et direction (1=asc, -1=desc)
 
 const fmt=n=>(n||0).toLocaleString('fr-FR',{minimumFractionDigits:2})+' DH';
 function bcS(cmd){if(!cmd.lignes||!cmd.lignes.length)return'simulation';return STEPS[Math.min(...cmd.lignes.map(l=>SIDX[l.statut||'simulation']??0))].key;}
@@ -484,6 +489,41 @@ function cardHTML(cmd){
 </div>`;
 }
 
+function applySort(list){
+  return [...list].sort((a,b)=>{
+    let va,vb;
+    switch(sortCol){
+      case 'date':
+        va=urgencyDays(a.cmd)??99999; vb=urgencyDays(b.cmd)??99999; break;
+      case 'ref':
+        va=a.cmd.reference.toLowerCase(); vb=b.cmd.reference.toLowerCase(); break;
+      case 'client':
+        va=(a.cmd.client||'').toLowerCase(); vb=(b.cmd.client||'').toLowerCase(); break;
+      case 'article':
+        va=(a.ligne.description||'').toLowerCase(); vb=(b.ligne.description||'').toLowerCase(); break;
+      case 'qte':
+        va=a.ligne.quantite||0; vb=b.ligne.quantite||0; break;
+      case 'fournisseur':
+        va=(a.ligne.fournisseur||'').toLowerCase(); vb=(b.ligne.fournisseur||'').toLowerCase(); break;
+      case 'statut':
+        va=SIDX[a.ligne.statut||'simulation']??0; vb=SIDX[b.ligne.statut||'simulation']??0; break;
+      default: va=0; vb=0;
+    }
+    if(va<vb)return -1*sortDir; if(va>vb)return 1*sortDir; return 0;
+  });
+}
+
+function thSort(col,label,width=''){
+  const active=sortCol===col;
+  const arrow=active?(sortDir===1?'▲':'▼'):'▲';
+  return `<th class="sortable${active?' sort-active':''}"${width?` style="width:${width}"`:''}onclick="setSort('${col}')">${label}<span class="sort-arrow${active?' active':''}">${arrow}</span></th>`;
+}
+
+function setSort(col){
+  if(sortCol===col)sortDir*=-1; else{sortCol=col;sortDir=1;}
+  render();
+}
+
 function flatView(fil, statut) {
   const allLignes = [];
   fil.forEach(cmd => {
@@ -494,18 +534,11 @@ function flatView(fil, statut) {
     });
   });
 
-  // Tri par urgence : les plus proches en premier, sans date en dernier
-  allLignes.sort((a, b) => {
-    const da = urgencyDays(a.cmd), db = urgencyDays(b.cmd);
-    if (da === null && db === null) return 0;
-    if (da === null) return 1;
-    if (db === null) return -1;
-    return da - db;
-  });
+  const sorted = applySort(allLignes);
 
-  if (!allLignes.length) return `<div class="empty"><div class="ei">📦</div><h3>Aucun article en ${SL[statut]}</h3></div>`;
+  if (!sorted.length) return `<div class="empty"><div class="ei">📦</div><h3>Aucun article en ${SL[statut]}</h3></div>`;
 
-  const rows = allLignes.map(({ cmd, ligne, li }) => {
+  const rows = sorted.map(({ cmd, ligne, li }) => {
     const days = urgencyDays(cmd);
     const flag = days === null ? '' : days <= 5 ? '🔴' : days <= 10 ? '🟠' : '';
     const dateColor = days === null ? 'var(--muted)' : days <= 5 ? '#c0392b' : days <= 10 ? '#e67e22' : 'var(--muted)';
@@ -540,16 +573,16 @@ function flatView(fil, statut) {
   return `
     <div class="flat-view-header">
       <div class="flat-view-title">Vue globale — ${SL[statut]}</div>
-      <div class="flat-count">${allLignes.length} article${allLignes.length>1?'s':''} • ${fil.length} commande${fil.length>1?'s':''}</div>
+      <div class="flat-count">${sorted.length} article${sorted.length>1?'s':''} • ${fil.length} commande${fil.length>1?'s':''}</div>
     </div>
     <table class="flat-table">
       <thead><tr>
-        <th style="width:130px">Commande</th>
+        ${thSort('ref','Commande','130px')}
         <th style="width:60px">Mockup</th>
         <th style="width:70px">Type</th>
-        <th>Article / Marquage</th>
-        <th style="text-align:center;width:40px">Qté</th>
-        <th style="width:140px">Fournisseur</th>
+        ${thSort('article','Article / Marquage')}
+        ${thSort('qte','Qté','40px')}
+        ${thSort('fournisseur','Fournisseur','140px')}
         <th>Statut</th>
       </tr></thead>
       <tbody>${rows}</tbody>
@@ -566,17 +599,11 @@ function flatViewFournisseur(fil, fournisseur) {
     });
   });
 
-  allLignes.sort((a, b) => {
-    const da = urgencyDays(a.cmd), db = urgencyDays(b.cmd);
-    if (da === null && db === null) return 0;
-    if (da === null) return 1;
-    if (db === null) return -1;
-    return da - db;
-  });
+  const sorted = applySort(allLignes);
 
-  if (!allLignes.length) return `<div class="empty"><div class="ei">📦</div><h3>Aucun article chez ${fournisseur}</h3></div>`;
+  if (!sorted.length) return `<div class="empty"><div class="ei">📦</div><h3>Aucun article chez ${fournisseur}</h3></div>`;
 
-  const rows = allLignes.map(({ cmd, ligne, li }) => {
+  const rows = sorted.map(({ cmd, ligne, li }) => {
     const days = urgencyDays(cmd);
     const flag = days === null ? '' : days <= 5 ? '🔴' : days <= 10 ? '🟠' : '';
     const dateColor = days === null ? 'var(--muted)' : days <= 5 ? '#c0392b' : days <= 10 ? '#e67e22' : 'var(--muted)';
@@ -606,16 +633,16 @@ function flatViewFournisseur(fil, fournisseur) {
   return `
     <div class="flat-view-header">
       <div class="flat-view-title">Vue globale — ${fournisseur}</div>
-      <div class="flat-count">${allLignes.length} article${allLignes.length>1?'s':''} • ${fil.length} commande${fil.length>1?'s':''}</div>
+      <div class="flat-count">${sorted.length} article${sorted.length>1?'s':''} • ${fil.length} commande${fil.length>1?'s':''}</div>
     </div>
     <table class="flat-table">
       <thead><tr>
-        <th style="width:130px">Commande</th>
+        ${thSort('ref','Commande','130px')}
         <th style="width:60px">Mockup</th>
         <th style="width:70px">Type</th>
-        <th>Article / Marquage</th>
-        <th style="text-align:center;width:40px">Qté</th>
-        <th style="width:100px">Statut</th>
+        ${thSort('article','Article / Marquage')}
+        ${thSort('qte','Qté','40px')}
+        ${thSort('statut','Statut','100px')}
         <th>Pipeline</th>
       </tr></thead>
       <tbody>${rows}</tbody>
