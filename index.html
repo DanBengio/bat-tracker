@@ -1114,19 +1114,21 @@ function openWA(tel,text=''){
   const num=tel.replace(/\D/g,'');
   const txt=text?encodeURIComponent(text):'';
   if(isMobileAndroid){
-    // Tente WA Business, fallback WA standard après 1.5s si pas d'app
-    const intentBusiness=text
-      ?`intent://send?phone=${num}&text=${txt}#Intent;scheme=whatsapp;package=com.whatsapp.w4b;end`
-      :`intent://send/${num}#Intent;scheme=whatsapp;package=com.whatsapp.w4b;end`;
+    // Essai 1 : scheme direct whatsapp business
+    const waBusiness=`whatsapp://send?phone=${num}${text?'&text='+txt:''}`;
     const fallback=`https://wa.me/${num}${text?'?text='+txt:''}`;
-    // On ouvre l'intent Business
-    window.location.href=intentBusiness;
-    // Fallback : si on est encore sur la page après 2s, WA Business n'est pas installé
+    // On crée un iframe invisible pour tenter l'ouverture sans quitter la page
+    const iframe=document.createElement('iframe');
+    iframe.style.display='none';
+    document.body.appendChild(iframe);
+    // On tente d'abord WA Business via intent
+    try{
+      iframe.src=`intent://send?phone=${num}${text?'&text='+txt:''}#Intent;scheme=whatsapp;package=com.whatsapp.w4b;S.browser_fallback_url=${encodeURIComponent(fallback)};end`;
+    }catch(e){}
     setTimeout(()=>{
-      if(!document.hidden){window.open(fallback,'_blank');}
-    },2000);
+      document.body.removeChild(iframe);
+    },3000);
   } else {
-    // Desktop → wa.me classique
     window.open(`https://wa.me/${num}${text?'?text='+txt:''}`, '_blank');
   }
 }
