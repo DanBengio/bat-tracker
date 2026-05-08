@@ -584,7 +584,7 @@ function cardHTML(cmd){
     <span class="badge ${BC[gs]}">${SL[gs]}</span>
     <span class="badge ${BC[cmd.paiement]}">${PL[cmd.paiement]}</span>
     <div class="ctot">${fmt(cmd.totalTTC)}</div>
-    ${cmd.tel?`<a class="btn-wa-hdr" href="https://wa.me/${cmd.tel.replace(/\D/g,'')}" target="_blank" onclick="event.stopPropagation()" title="WhatsApp — ${cmd.contact||cmd.client}">
+    ${cmd.tel?`<a class="btn-wa-hdr" href="#" onclick="event.preventDefault();event.stopPropagation();openWA('${cmd.tel.replace(/\D/g,'')}')" title="WhatsApp Business — ${cmd.contact||cmd.client}">
       <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.117.553 4.103 1.518 5.828L.057 23.428a.5.5 0 0 0 .515.572l5.797-1.522A11.95 11.95 0 0 0 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.9a9.9 9.9 0 0 1-5.031-1.371l-.361-.214-3.741.981.999-3.648-.235-.374A9.86 9.86 0 0 1 2.1 12C2.1 6.534 6.534 2.1 12 2.1S21.9 6.534 21.9 12 17.466 21.9 12 21.9z"/></svg>
     </a>`:''}
     <div class="chev">▶</div>
@@ -621,9 +621,9 @@ function cardHTML(cmd){
     </div>
     <div class="nbox"><label>Notes internes</label><textarea placeholder="Ajouter des notes…" onchange="setF('${cmd.id}','notes',this.value)">${cmd.notes||''}</textarea></div>
     <div class="acts">
-      <a class="btn bwa" href="https://wa.me/?text=${encodeURIComponent(waP)}" target="_blank">🏭 Notifier prod</a>
-      <a class="btn bwa" href="https://wa.me/?text=${encodeURIComponent(waV)}" target="_blank">👤 Validation client</a>
-      <a class="btn bwa" href="https://wa.me/?text=${encodeURIComponent(waR)}" target="_blank">📦 Commande prête</a>
+      <button class="btn bwa" onclick="openWAMsg('${cmd.id}','prod')">🏭 Notifier prod</button>
+      <button class="btn bwa" onclick="openWAMsg('${cmd.id}','valid')">👤 Validation client</button>
+      <button class="btn bwa" onclick="openWAMsg('${cmd.id}','pret')">📦 Commande prête</button>
       <button class="btn" style="border-color:rgba(245,190,69,0.5);color:#a07a1a;background:rgba(245,190,69,0.07);font-weight:700" onclick="openUpdatePDF('${cmd.id}')">📄 Mettre à jour BC</button>
       ${archiveBtn(cmd)}
       <button class="btn" style="border-color:rgba(0,135,183,0.4);color:var(--blue);background:rgba(0,135,183,0.07);font-weight:700" onclick="printFicheProd('${cmd.id}')">🖨 Fiche prod</button>
@@ -1107,7 +1107,41 @@ function applyBCUpdate(id, nouveau){
   showToast(msg,4000);
 }
 
-function openUpdatePDF_noop(){}// sentinel
+// ── WHATSAPP ──
+const isMobileAndroid=/Android/i.test(navigator.userAgent);
+
+function openWA(tel,text=''){
+  const num=tel.replace(/\D/g,'');
+  const txt=text?encodeURIComponent(text):'';
+  if(isMobileAndroid){
+    // Tente WA Business, fallback WA standard après 1.5s si pas d'app
+    const intentBusiness=text
+      ?`intent://send?phone=${num}&text=${txt}#Intent;scheme=whatsapp;package=com.whatsapp.w4b;end`
+      :`intent://send/${num}#Intent;scheme=whatsapp;package=com.whatsapp.w4b;end`;
+    const fallback=`https://wa.me/${num}${text?'?text='+txt:''}`;
+    // On ouvre l'intent Business
+    window.location.href=intentBusiness;
+    // Fallback : si on est encore sur la page après 2s, WA Business n'est pas installé
+    setTimeout(()=>{
+      if(!document.hidden){window.open(fallback,'_blank');}
+    },2000);
+  } else {
+    // Desktop → wa.me classique
+    window.open(`https://wa.me/${num}${text?'?text='+txt:''}`, '_blank');
+  }
+}
+
+function openWAMsg(cmdId, type){
+  const cmd=cmds.find(x=>x.id===cmdId);if(!cmd)return;
+  const waP=`📋 *LANCEMENT PRODUCTION*\n\nRef: ${cmd.reference}\nClient: ${cmd.client}\n\n${(cmd.lignes||[]).map(l=>`• ${l.description} (x${l.quantite}) — ${l.marquage||'—'} — ${l.fournisseur||'TBD'}`).join('\n')}\n\nLivraison: ${cmd.dateLivraison||'À confirmer'}\n\n✅ Merci de confirmer`;
+  const waV=`Bonjour,\n\nVotre simulation pour *${cmd.reference}* est prête.\nMerci de valider pour lancer la production.\n\nCordialement,\nBar À Textile`;
+  const waR=`Bonjour,\n\nVotre commande *${cmd.reference}* est prête !\n${cmd.livraison==='livraison'?'Livraison en cours.':'Vous pouvez la récupérer.'}\n\nBar À Textile`;
+  const msg=type==='prod'?waP:type==='valid'?waV:waR;
+  const tel=cmd.tel?cmd.tel.replace(/\D/g,''):'';
+  openWA(tel,msg);
+}
+
+function openUpdatePDF_noop2(){}// sentinel
 function delCmd(id){if(!confirm('Supprimer cette commande ?'))return;deleteBC(id);cmds=cmds.filter(c=>c.id!==id);if(openId===id)openId=null;render();showToast('Commande supprimée');}
 
 function openImport(){
