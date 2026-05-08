@@ -171,6 +171,116 @@
   .sync-dot.saving{background:var(--yellow);animation:pulse 0.8s infinite;}
   .sync-dot.error{background:var(--prune);}
   @keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.3;}}
+
+  /* ── MOBILE ── */
+  @media(max-width:768px){
+    header{padding:10px 16px;}
+    .logo .s{display:none;}
+    .logo .dots{display:none;}
+    .hstats{gap:16px;}
+    .sv{font-size:13px;}
+    .sl{font-size:9px;}
+
+    /* Cache sidebar, affiche barre filtres mobile */
+    .layout{display:block;}
+    .sidebar{display:none;}
+    .main{padding:0 0 80px 0;}
+
+    /* Barre filtres mobile sticky */
+    .mobile-filters{display:flex!important;}
+
+    /* Cards mobile */
+    .search{border-radius:0;border-left:none;border-right:none;margin-bottom:0;border-top:none;font-size:14px;padding:12px 16px;}
+    .card{border-radius:0;border-left:none;border-right:none;margin-bottom:0;border-bottom:none;box-shadow:none;}
+    .card:last-child{border-bottom:1px solid var(--border);}
+    .card-hdr{grid-template-columns:1fr auto auto;gap:8px;padding:12px 16px;align-items:start;}
+    .cref{font-size:13px;}
+    .ccli{font-size:12px;}
+    .ctot{font-size:12px;}
+    .badge{font-size:8px;padding:2px 6px;}
+    .chev{display:none;}
+    /* Masque badges & total sur mobile pour gagner de la place */
+    .card-hdr .badge:first-of-type{display:none;}
+    .card-hdr .ctot{display:none;}
+
+    /* Card detail mobile */
+    .card-det{padding:12px 16px;}
+    .lt{font-size:11px;}
+    .lt thead{display:none;}
+    .lt tbody tr{display:block;border-bottom:1px solid var(--border);padding:8px 0;}
+    .lt tbody tr td{display:block;border:none;padding:2px 0;text-align:left!important;}
+    .lt tbody td:before{content:attr(data-label);font-size:9px;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:2px;}
+    .mpipe{display:flex;flex-wrap:wrap;gap:4px;}
+    .ms{padding:5px 8px;font-size:10px;}
+    .fg{grid-template-columns:1fr 1fr!important;}
+    .acts{flex-wrap:wrap;gap:6px;}
+    .acts .btn,.acts a.btn{font-size:10px;padding:6px 10px;}
+    .nbox textarea{font-size:12px;}
+
+    /* Flat table mobile → stack cards */
+    .flat-table{font-size:11px;}
+    .flat-table thead{display:none;}
+    .flat-table tbody tr{display:block;border:1px solid var(--border);border-radius:6px;margin-bottom:8px;padding:10px 12px;background:var(--surface);}
+    .flat-table tbody td{display:block;border:none;padding:3px 0;}
+    .flat-view-header{padding:12px 16px 8px;background:var(--surface);border-bottom:1px solid var(--border);}
+    #cards{padding:8px 12px;}
+
+    /* Sync indicator mobile */
+    .sync-indicator{top:auto;bottom:70px;right:12px;font-size:10px;}
+
+    /* Bouton wa sur header */
+    .btn-wa-hdr{width:26px;height:26px;}
+  }
+
+  /* Barre filtres mobile (cachée sur desktop) */
+  .mobile-filters{
+    display:none;
+    position:sticky;
+    top:53px;
+    z-index:90;
+    background:var(--surface);
+    border-bottom:1px solid var(--border);
+    padding:10px 12px;
+    gap:8px;
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+    scrollbar-width:none;
+    box-shadow:0 2px 6px rgba(0,0,0,0.06);
+  }
+  .mobile-filters::-webkit-scrollbar{display:none;}
+  .mf-select{
+    flex-shrink:0;
+    padding:7px 10px;
+    background:var(--surface2);
+    border:1px solid var(--border);
+    border-radius:6px;
+    font-family:'Raleway',sans-serif;
+    font-size:12px;
+    color:var(--text);
+    font-weight:600;
+    outline:none;
+    cursor:pointer;
+    -webkit-appearance:none;
+    appearance:none;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%237a95a8'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;
+    background-position:right 8px center;
+    padding-right:24px;
+  }
+  .mf-select.active{border-color:var(--blue);background-color:rgba(0,135,183,0.06);color:var(--blue);}
+  .mf-btn-import{
+    flex-shrink:0;
+    padding:7px 12px;
+    background:var(--blue);
+    color:#fff;
+    border:none;
+    border-radius:6px;
+    font-family:'Raleway',sans-serif;
+    font-size:12px;
+    font-weight:700;
+    cursor:pointer;
+    white-space:nowrap;
+  }
 </style>
 </head>
 <body>
@@ -186,6 +296,33 @@
 </header>
 
 <div class="layout">
+  <!-- BARRE FILTRES MOBILE -->
+  <div class="mobile-filters" id="mobile-filters">
+    <button class="mf-btn-import" onclick="openImportPDF()">↑ PDF</button>
+    <button class="mf-btn-import" style="background:transparent;border:1px solid var(--blue);color:var(--blue)" onclick="openImport()">+ Manuel</button>
+    <select class="mf-select" id="mf-statut" onchange="onMobileStatut(this)">
+      <option value="all">Tous les statuts</option>
+      <option value="simulation">Simulation</option>
+      <option value="validation">Validation</option>
+      <option value="production">En production</option>
+      <option value="pret">Prêt</option>
+      <option value="livre">Livré</option>
+    </select>
+    <select class="mf-select" id="mf-paiement" onchange="onMobilePaiement(this)">
+      <option value="all">Tous paiements</option>
+      <option value="attente">En attente</option>
+      <option value="partiel">Partiel</option>
+      <option value="paye">Réglé</option>
+    </select>
+    <select class="mf-select" id="mf-archive" onchange="onMobileArchive(this)">
+      <option value="all">Actifs</option>
+      <option value="attente-reglement">⏳ Attente règlement</option>
+      <option value="archive">📦 Archivés</option>
+    </select>
+    <select class="mf-select" id="mf-fourn" onchange="onMobileFourn(this)">
+      <option value="all">Tous fournisseurs</option>
+    </select>
+  </div>
   <aside class="sidebar">
     <button class="btn-import" onclick="openImportPDF()">↑ Importer BC (PDF)</button>
     <button class="btn-gf" onclick="openImport()" style="margin-bottom:8px;border-color:var(--blue);color:var(--blue)">+ Saisie manuelle</button>
@@ -1030,23 +1167,78 @@ async function addF(){
     if(!r.ok)throw new Error(data.error);
     fournisseurs.push({id:data.id,nom:data.nom});
     fournisseurs.sort((a,b)=>a.nom.localeCompare(b.nom));
-    renderFL();render();showToast(`"${v}" ajouté`);
+    renderFL();render();updateMobileFournisseurs();showToast(`"${v}" ajouté`);
   }catch(err){showToast('Erreur : '+err.message);}
 }
 async function delF(id,nom){
   fournisseurs=fournisseurs.filter(f=>f.id!==id);
-  renderFL();render();
+  renderFL();render();updateMobileFournisseurs();
   try{
     await fetch('/api/delete-fournisseur',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});
     showToast(`"${nom}" supprimé`);
   }catch(err){showToast('Erreur suppression : '+err.message);}
 }
+
+// ── FILTRES MOBILE ──
+function onMobileStatut(sel){
+  // Reset paiement si on choisit un statut article
+  if(sel.value!=='all'){document.getElementById('mf-paiement').value='all';document.getElementById('mf-archive').value='all';}
+  aF=sel.value;aFF='all';
+  syncMobileSelects();render();
+}
+function onMobilePaiement(sel){
+  if(sel.value!=='all'){document.getElementById('mf-statut').value='all';document.getElementById('mf-archive').value='all';}
+  aF=sel.value==='all'?'all':sel.value;aFF='all';
+  syncMobileSelects();render();
+}
+function onMobileArchive(sel){
+  if(sel.value!=='all'){document.getElementById('mf-statut').value='all';document.getElementById('mf-paiement').value='all';}
+  aF=sel.value==='all'?'all':sel.value;aFF='all';
+  syncMobileSelects();render();
+}
+function onMobileFourn(sel){
+  aFF=sel.value;
+  syncMobileSelects();render();
+}
+function syncMobileSelects(){
+  // Highlight selects actifs
+  ['mf-statut','mf-paiement','mf-archive','mf-fourn'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el)el.classList.toggle('active',el.value!=='all');
+  });
+}
+function updateMobileFournisseurs(){
+  const sel=document.getElementById('mf-fourn');if(!sel)return;
+  const cur=sel.value;
+  sel.innerHTML='<option value="all">Tous fournisseurs</option>'+fournisseurs.map(f=>`<option value="${f.nom}"${f.nom===cur?' selected':''}>${f.nom}</option>`).join('');
+}
+
+// Override setFilter pour aussi sync mobile
+const _origSetFilter=typeof setFilter==='function'?setFilter:null;
+function setFilter(val,btn){
+  aF=val;aFF='all';
+  document.querySelectorAll('.fb').forEach(b=>b.classList.remove('active'));
+  if(btn)btn.classList.add('active');
+  // Sync selects mobile
+  const ms=document.getElementById('mf-statut');
+  const mp=document.getElementById('mf-paiement');
+  const ma=document.getElementById('mf-archive');
+  if(ms&&mp&&ma){
+    ms.value=['all','simulation','validation','production','pret','livre'].includes(val)?val:'all';
+    mp.value=['attente','partiel','paye'].includes(val)?val:'all';
+    ma.value=['archive','attente-reglement'].includes(val)?val:'all';
+    syncMobileSelects();
+  }
+  render();
+}
+
 async function loadFournisseurs(){
   try{
     const r=await fetch('/api/get-fournisseurs');
     const data=await r.json();
     if(!r.ok)throw new Error(data.error);
     fournisseurs=data;
+    updateMobileFournisseurs();
     render();
   }catch(err){showToast('Erreur chargement fournisseurs : '+err.message);}
 }
