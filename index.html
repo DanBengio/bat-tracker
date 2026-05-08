@@ -415,10 +415,10 @@ function cardHTML(cmd){
   const lignesFiltrees=(['simulation','validation','production','pret','livre'].includes(aF))
     ?(cmd.lignes||[]).filter(l=>(l.statut||'simulation')===aF)
     :(cmd.lignes||[]);
-  const rows=lignesFiltrees.map((l,i)=>{const i2=(cmd.lignes||[]).indexOf(l);return`<tr>
+  const rows=lignesFiltrees.map((l,i)=>{const i2=(cmd.lignes||[]).indexOf(l);return`<tr${l.modifie?' style="background:rgba(245,190,69,0.07)"':''}>
     <td>${mockupCell(cmd.id,i2,l.mockup)}</td>
     <td><span class="tpill ${l.type==='goodies'?'tg':'tt'}">${l.type}</span></td>
-    <td><strong style="font-size:12px">${l.description}</strong>${l.marquage?`<div style="font-size:10px;color:var(--muted);margin-top:2px">${l.marquage}</div>`:''}</td>
+    <td><strong style="font-size:12px">${l.description}</strong>${l.modifie?'<span style="margin-left:6px;font-size:9px;background:rgba(245,190,69,0.25);color:#a07a1a;padding:1px 5px;border-radius:3px;font-weight:700">⚠ modifié</span>':''}${l.marquage?`<div style="font-size:10px;color:var(--muted);margin-top:2px">${l.marquage}</div>`:''}${taillesHTML(l.tailles)}</td>
     <td style="text-align:center">${l.quantite}</td>
     <td style="text-align:right;color:var(--blue);font-weight:600">${l.totalHT?l.totalHT.toFixed(2)+' DH':'—'}</td>
     <td><select class="fsel" onchange="setLF('${cmd.id}',${i2},this.value)"><option value="">— Fournisseur</option>${fournisseurs.map(f=>`<option value="${f.nom}"${l.fournisseur===f.nom?' selected':''}>${f.nom}</option>`).join('')}</select></td>
@@ -433,7 +433,7 @@ function cardHTML(cmd){
 
   return`<div class="card${open?' open':''}" id="card-${cmd.id}">
   <div class="card-hdr" onclick="toggle('${cmd.id}')">
-    <div class="cref">${cmd.reference}${urgencyFlag(cmd)}<div style="font-size:9px;color:var(--muted);font-weight:400;margin-top:1px">${cmd.date}</div></div>
+    <div class="cref">${cmd.reference}${urgencyFlag(cmd)}<div style="font-size:9px;color:var(--muted);font-weight:400;margin-top:1px">${cmd.date}${cmd.versionMaj?`<span style="margin-left:6px;color:#a07a1a;font-weight:600">· MAJ ${cmd.versionMaj}</span>`:''}</div></div>
     <div class="ccli">
       <div>${cmd.client}</div>
       <div style="display:flex;gap:14px;margin-top:4px;flex-wrap:wrap;font-size:10px;color:var(--muted)">
@@ -482,6 +482,7 @@ function cardHTML(cmd){
       <a class="btn bwa" href="https://wa.me/?text=${encodeURIComponent(waP)}" target="_blank">🏭 Notifier prod</a>
       <a class="btn bwa" href="https://wa.me/?text=${encodeURIComponent(waV)}" target="_blank">👤 Validation client</a>
       <a class="btn bwa" href="https://wa.me/?text=${encodeURIComponent(waR)}" target="_blank">📦 Commande prête</a>
+      <button class="btn" style="border-color:rgba(245,190,69,0.5);color:#a07a1a;background:rgba(245,190,69,0.07);font-weight:700" onclick="openUpdatePDF('${cmd.id}')">📄 Mettre à jour BC</button>
       ${archiveBtn(cmd)}
       <button class="btn" style="border-color:rgba(0,135,183,0.4);color:var(--blue);background:rgba(0,135,183,0.07);font-weight:700" onclick="printFicheProd('${cmd.id}')">🖨 Fiche prod</button>
       <button class="btn br" onclick="delCmd('${cmd.id}')">✕ Supprimer</button>
@@ -892,6 +893,79 @@ function printFicheProd(id){
   win.document.close();
 }
 
+function openUpdatePDF(id){
+  // Crée un input file invisible et le déclenche
+  const inp=document.createElement('input');
+  inp.type='file';inp.accept='application/pdf';
+  inp.onchange=async e=>{
+    const file=e.target.files[0];if(!file)return;
+    showToast('⏳ Lecture du nouveau BC…');
+    const base64=await new Promise((res,rej)=>{
+      const r=new FileReader();
+      r.onload=()=>res(r.result.split(',')[1]);
+      r.onerror=rej;
+      r.readAsDataURL(file);
+    });
+    try{
+      const resp=await fetch('/api/extract-bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({base64})});
+      const data=await resp.json();
+      if(!resp.ok||!data.result)throw new Error(data.error||'Extraction échouée');
+      const nouveau=JSON.parse(data.result);
+      applyBCUpdate(id, nouveau);
+    }catch(err){
+      showToast('❌ Erreur : '+err.message);
+    }
+  };
+  inp.click();
+}
+
+function applyBCUpdate(id, nouveau){
+  const cmd=cmds.find(x=>x.id===id);if(!cmd)return;
+  const anciennes=cmd.lignes||[];
+  const nouvelles=nouveau.lignes||[];
+  const lignesMaj=[];
+  let nbAjout=0,nbModif=0,nbSuppr=0;
+
+  nouvelles.forEach(nl=>{
+    // Cherche un article correspondant dans l'ancienne version (par description normalisée)
+    const match=anciennes.find(al=>al.description.toLowerCase().trim()===nl.description.toLowerCase().trim());
+    if(match){
+      const modif=match.quantite!==nl.quantite||match.totalHT!==nl.totalHT||JSON.stringify(match.tailles)!==JSON.stringify(nl.tailles);
+      lignesMaj.push({
+        ...match, // conserve statut, mockup, fournisseur
+        quantite:nl.quantite,
+        totalHT:nl.totalHT,
+        tailles:nl.tailles,
+        marquage:nl.marquage||match.marquage,
+        type:nl.type||match.type,
+        modifie:modif?true:undefined,
+      });
+      if(modif)nbModif++;
+    } else {
+      // Nouvel article
+      lignesMaj.push({...nl,statut:'simulation'});
+      nbAjout++;
+    }
+  });
+
+  // Articles supprimés = ceux dans anciennes mais pas dans nouvelles
+  anciennes.forEach(al=>{
+    const existe=nouvelles.some(nl=>nl.description.toLowerCase().trim()===al.description.toLowerCase().trim());
+    if(!existe)nbSuppr++;
+  });
+
+  // Met à jour le BC
+  cmd.lignes=lignesMaj;
+  cmd.totalHT=nouveau.totalHT||cmd.totalHT;
+  cmd.totalTTC=nouveau.totalTTC||cmd.totalTTC;
+  cmd.versionMaj=new Date().toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+
+  scheduleSave(cmd);render();
+  const msg=`✅ BC mis à jour — ${nbModif} modifié(s), ${nbAjout} ajouté(s), ${nbSuppr} supprimé(s)`;
+  showToast(msg,4000);
+}
+
+function openUpdatePDF_noop(){}// sentinel
 function delCmd(id){if(!confirm('Supprimer cette commande ?'))return;deleteBC(id);cmds=cmds.filter(c=>c.id!==id);if(openId===id)openId=null;render();showToast('Commande supprimée');}
 
 function openImport(){
@@ -971,7 +1045,7 @@ async function loadFournisseurs(){
     render();
   }catch(err){showToast('Erreur chargement fournisseurs : '+err.message);}
 }
-function showToast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),3000);}
+function showToast(msg,duration=2500){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),duration);}
 document.getElementById('import-modal').addEventListener('click',e=>{if(e.target===document.getElementById('import-modal'))closeImport();});
 document.getElementById('fm').addEventListener('click',e=>{if(e.target===document.getElementById('fm'))closeFM();});
 document.getElementById('pdf-modal').addEventListener('click',e=>{if(e.target===document.getElementById('pdf-modal'))closeImportPDF();});
