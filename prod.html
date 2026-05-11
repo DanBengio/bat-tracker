@@ -108,6 +108,18 @@
   .notif-cli{font-size:11px;color:var(--muted);}
   .notif-empty{padding:20px;text-align:center;color:var(--muted);font-size:12px;}
 
+  /* PIPELINE ARTICLE PROD */
+  .art-pipeline{display:flex;gap:4px;margin-top:8px;flex-wrap:wrap;}
+  .ap-btn{padding:5px 10px;border-radius:5px;font-size:10px;font-weight:700;cursor:pointer;border:1px solid var(--border);background:var(--surface2);color:var(--muted);transition:all 0.15s;font-family:'Raleway',sans-serif;}
+  .ap-btn:hover{opacity:0.8;}
+  .ap-btn.active-afaire{background:rgba(120,120,120,0.12);color:#555;border-color:rgba(120,120,120,0.3);}
+  .ap-btn.active-encours{background:rgba(0,135,183,0.12);color:var(--blue);border-color:rgba(0,135,183,0.4);}
+  .ap-btn.active-pret{background:rgba(39,174,96,0.12);color:var(--green);border-color:rgba(39,174,96,0.4);}
+  .art-prod-status{font-size:10px;font-weight:700;margin-top:4px;}
+  .art-prod-status.afaire{color:var(--muted);}
+  .art-prod-status.encours{color:var(--blue);}
+  .art-prod-status.pret{color:var(--green);}
+
   @keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.4;}}
 
   /* MOBILE */
@@ -252,17 +264,37 @@ function setProdStatus(id, status){
   const cmd=cmds.find(x=>x.id===id);if(!cmd)return;
   cmd.prodStatus=status;
   saveBC(cmd);renderCards();updateCounts();
-  const labels={vu:'👁 Acquitté',attente:'⏸ Mis en attente'};
+  const labels={vu:'👁 Pris en charge',attente:'⏸ Mis en attente',nouveau:'🔵 Remis en nouveau'};
   showToast(labels[status]||'✓ Mis à jour');
 }
 
-function marquerPret(id){
+function remettreEnNouveau(id){
   const cmd=cmds.find(x=>x.id===id);if(!cmd)return;
-  // Passe tous les articles "en production" en "prêt"
-  (cmd.lignes||[]).forEach(l=>{if((l.statut||'simulation')==='production')l.statut='pret';});
-  cmd.prodStatus='pret';
+  cmd.prodStatus=null;
   saveBC(cmd);renderCards();updateCounts();
-  showToast('✅ Commande marquée Prête !',3000);
+  showToast('🔵 Remis en Nouveau');
+}
+
+// statut prod article : 'afaire' | 'encours' | 'pret'
+// côté commercial : afaire/encours → statut reste 'production', pret → statut passe à 'pret'
+function setArticleProdStatus(cmdId, ligneIdx, prodStat){
+  const cmd=cmds.find(x=>x.id===cmdId);if(!cmd||!cmd.lignes[ligneIdx])return;
+  const ligne=cmd.lignes[ligneIdx];
+  ligne.prodStat=prodStat;
+  // Sync vers statut commercial
+  if(prodStat==='pret'){
+    ligne.statut='pret';
+  } else {
+    // Si on revient en arrière, repasse en production
+    if(ligne.statut==='pret') ligne.statut='production';
+  }
+  // Si tous les articles prod sont prêts → marquer le BC prêt
+  const artsProd=(cmd.lignes||[]).filter(l=>['production','pret'].includes(l.statut||''));
+  if(artsProd.length>0&&artsProd.every(l=>l.statut==='pret')){
+    cmd.prodStatus='pret';
+    showToast('✅ Tous les articles prêts !',3000);
+  }
+  saveBC(cmd);renderCards();updateCounts();
 }
 
 function toggle(id){openId=openId===id?null:id;renderCards();}
@@ -340,34 +372,48 @@ function renderCards(){
 
     // Articles en prod/pret uniquement
     const articlesEnProd=(cmd.lignes||[]).filter(l=>['production','pret'].includes(l.statut||''));
-    const artRows=articlesEnProd.map(l=>`
-      <div class="art-row">
+    const artRows=articlesEnProd.map((l,i)=>{
+      const realIdx=(cmd.lignes||[]).indexOf(l);
+      const ps=l.prodStat||'afaire';
+      const psLabel={afaire:'⬜ À faire',encours:'🔄 En cours',pret:'✅ Prêt'}[ps];
+      const psClass={afaire:'afaire',encours:'encours',pret:'pret'}[ps];
+      return`<div class="art-row" style="${ps==='pret'?'opacity:0.7':''}">
         ${l.mockup?`<img class="art-mockup" src="${l.mockup}" alt="">`:`<div class="art-mockup-empty">👕</div>`}
-        <div class="art-info">
-          <div class="art-name">${l.description}${l.statut==='pret'?' <span style="font-size:10px;color:var(--green);font-weight:700">✅ Prêt</span>':''}</div>
+        <div class="art-info" style="flex:1">
+          <div class="art-name">${l.description}</div>
           ${l.marquage?`<div class="art-marquage">📍 ${l.marquage}</div>`:''}
-          ${l.fournisseur?`<div style="font-size:10px;color:var(--muted)">Fournisseur : ${l.fournisseur}</div>`:''}
+          ${l.fournisseur?`<div style="font-size:10px;color:var(--muted)">📦 ${l.fournisseur}</div>`:''}
           ${taillesHTML(l.tailles)}
+          <div class="art-pipeline">
+            <button class="ap-btn${ps==='afaire'?' active-afaire':''}" onclick="setArticleProdStatus('${cmd.id}',${realIdx},'afaire')">⬜ À faire</button>
+            <button class="ap-btn${ps==='encours'?' active-encours':''}" onclick="setArticleProdStatus('${cmd.id}',${realIdx},'encours')">🔄 En cours</button>
+            <button class="ap-btn${ps==='pret'?' active-pret':''}" onclick="setArticleProdStatus('${cmd.id}',${realIdx},'pret')">✅ Prêt</button>
+          </div>
         </div>
         <div class="art-qty">${l.quantite}<span>unités</span></div>
-      </div>`).join('');
+      </div>`;
+    }).join('');
 
     const modeRemise=cmd.livraison==='livraison'?'🚚 Livraison':'🛍 À emporter';
+    const nbPrets=articlesEnProd.filter(l=>l.prodStat==='pret'||l.statut==='pret').length;
+    const nbTotal=articlesEnProd.length;
+
+    const btnRemettreNouveau=`<button class="btn" style="border-color:rgba(0,135,183,0.3);color:var(--blue);background:rgba(0,135,183,0.06)" onclick="remettreEnNouveau('${cmd.id}')">🔵 Remettre en Nouveau</button>`;
 
     const actions=currentTab==='pret'?`
       <div class="card-actions">
         ${cmd.tel?`<button class="btn btn-wa" onclick="openWA('${cmd.tel}','Bonjour, votre commande ${cmd.reference} est prête ! ${cmd.livraison==='livraison'?'Livraison en cours.':'Vous pouvez venir la récupérer.'} — Bar À Textile')">📲 Notifier client</button>`:''}
+        ${btnRemettreNouveau}
       </div>`:
     currentTab==='nouveau'?`
       <div class="card-actions">
-        <button class="btn btn-vu" onclick="setProdStatus('${cmd.id}','vu')">👁 J'ai vu</button>
+        <button class="btn btn-vu" onclick="setProdStatus('${cmd.id}','vu')">👁 Prendre en charge</button>
         <button class="btn btn-attente" onclick="setProdStatus('${cmd.id}','attente')">⏸ Mettre en attente</button>
-        <button class="btn btn-pret" onclick="marquerPret('${cmd.id}')">✅ Marquer Prêt</button>
       </div>`:`
       <div class="card-actions">
         ${cmd.prodStatus==='attente'?`<button class="btn btn-vu" onclick="setProdStatus('${cmd.id}','vu')">👁 Prendre en charge</button>`:''}
-        <button class="btn btn-pret" onclick="marquerPret('${cmd.id}')">✅ Marquer Prêt</button>
-        ${cmd.tel?`<button class="btn btn-wa" onclick="openWA('${cmd.tel}','Bonjour, votre commande ${cmd.reference} est prête ! ${cmd.livraison==='livraison'?'Livraison en cours.':'Vous pouvez venir la récupérer.'} — Bar À Textile')">📲 Notifier client</button>`:''}
+        ${btnRemettreNouveau}
+        ${cmd.tel&&nbPrets===nbTotal?`<button class="btn btn-wa" onclick="openWA('${cmd.tel}','Bonjour, votre commande ${cmd.reference} est prête ! ${cmd.livraison==='livraison'?'Livraison en cours.':'Vous pouvez venir la récupérer.'} — Bar À Textile')">📲 Notifier client</button>`:''}
       </div>`;
 
     return`<div class="prod-card ${statusClass}" id="card-${cmd.id}">
@@ -375,6 +421,7 @@ function renderCards(){
         <div style="flex:1">
           <div class="card-ref">${cmd.reference} ${statusBadge}</div>
           <div class="card-client">${cmd.client||'—'} ${cmd.contact?'· '+cmd.contact:''}</div>
+          ${nbTotal>0?`<div style="font-size:10px;color:${nbPrets===nbTotal?'var(--green)':'var(--muted)'};margin-top:3px;font-weight:600">${nbPrets}/${nbTotal} article${nbTotal>1?'s':''} prêt${nbPrets>1?'s':''}</div>`:''}
         </div>
         <div style="text-align:right">${deadlineHTML(cmd)}</div>
         <div class="card-chev ${isOpen?'open':''}">▶</div>
