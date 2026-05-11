@@ -1317,7 +1317,6 @@ document.getElementById('fm').addEventListener('click',e=>{if(e.target===documen
 document.getElementById('pdf-modal').addEventListener('click',e=>{if(e.target===document.getElementById('pdf-modal'))closeImportPDF();});
 
 // ── SUPABASE SYNC ──
-let saveTimer=null;
 
 function showSync(state,msg){
   const ind=document.getElementById('sync-indicator');
@@ -1367,10 +1366,53 @@ async function deleteBC(id){
   }catch(err){console.error('Erreur suppression:',err);}
 }
 
+// ── SAUVEGARDE ROBUSTE ──
+const saveTimers={};   // un timer par BC
+const pendingSaves={}; // BCs en attente de sauvegarde
+
 function scheduleSave(cmd){
-  clearTimeout(saveTimer);
-  saveTimer=setTimeout(()=>saveBC(cmd),800);
+  if(!cmd||!cmd.id)return;
+  // Mémoriser le BC à sauvegarder
+  pendingSaves[cmd.id]=cmd;
+  // Annuler le timer existant pour CE BC seulement
+  clearTimeout(saveTimers[cmd.id]);
+  saveTimers[cmd.id]=setTimeout(async()=>{
+    await saveBC(cmd);
+    delete pendingSaves[cmd.id];
+    delete saveTimers[cmd.id];
+  },1500);
 }
+
+// Flush toutes les sauvegardes en attente (avant fermeture de page)
+async function flushPendingSaves(){
+  const ids=Object.keys(pendingSaves);
+  if(!ids.length)return;
+  // Annuler tous les timers
+  ids.forEach(id=>{clearTimeout(saveTimers[id]);delete saveTimers[id];});
+  // Sauvegarder tous en parallèle
+  await Promise.all(ids.map(id=>{
+    const cmd=pendingSaves[id];
+    delete pendingSaves[id];
+    return saveBC(cmd);
+  }));
+}
+
+// Sauvegarde avant fermeture de page
+window.addEventListener('beforeunload',e=>{
+  const ids=Object.keys(pendingSaves);
+  if(!ids.length)return;
+  // Forcer sauvegarde synchrone via sendBeacon
+  ids.forEach(id=>{
+    const cmd=pendingSaves[id];
+    const blob=new Blob([JSON.stringify(cmd)],{type:'application/json'});
+    navigator.sendBeacon('/api/save-bc',blob);
+  });
+});
+
+// Sauvegarde si on change d'onglet / met en arrière-plan
+document.addEventListener('visibilitychange',()=>{
+  if(document.hidden) flushPendingSaves();
+});
 
 // ── IMPORT PDF ──
 function openImportPDF(){
