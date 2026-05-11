@@ -1284,21 +1284,24 @@ function setFilter(val,btn){
   render();
 }
 
-async function toggleProdPanel(){
+function toggleProdPanel(){
   const p=document.getElementById('prod-panel');
   const isOpen=p.style.display==='block';
   p.style.display=isOpen?'none':'block';
   if(!isOpen){
     const liste=cmds.filter(c=>!c.archive&&!c.attenteReglement&&(c.lignes||[]).some(l=>l.statut==='production')&&!c.prodStatus);
     const el=document.getElementById('prod-panel-list');
-    el.innerHTML=liste.length?liste.map(c=>`<div style="padding:10px 16px;border-bottom:1px solid var(--border);cursor:pointer" onclick="toggleProdPanel();toggle('${c.id}')">
-      <div style="font-size:12px;font-weight:700;color:var(--blue)">🔵 ${c.reference}</div>
-      <div style="font-size:11px;color:var(--muted)">${c.client||'—'}${c.dateLivraison?' · '+new Date(c.dateLivraison).toLocaleDateString('fr-FR',{day:'2-digit',month:'short'}):''}
-      </div>
-    </div>`).join(''):'<div style="padding:20px;text-align:center;color:var(--muted);font-size:12px">Aucune commande non acquittée</div>';
+    if(!el)return;
+    el.innerHTML=liste.length?liste.map(c=>{
+      const dateStr=c.dateLivraison?(' · '+new Date(c.dateLivraison).toLocaleDateString('fr-FR',{day:'2-digit',month:'short'})):'';
+      return`<div style="padding:10px 16px;border-bottom:1px solid var(--border);cursor:pointer" onclick="toggleProdPanel();toggle('${c.id}')">
+        <div style="font-size:12px;font-weight:700;color:var(--blue)">🔵 ${c.reference}</div>
+        <div style="font-size:11px;color:var(--muted)">${c.client||'—'}${dateStr}</div>
+      </div>`;
+    }).join(''):'<div style="padding:20px;text-align:center;color:var(--muted);font-size:12px">Aucune commande non acquittée</div>';
   }
 }
-function loadFournisseurs(){
+async function loadFournisseurs(){
   try{
     const r=await fetch('/api/get-fournisseurs');
     const data=await r.json();
