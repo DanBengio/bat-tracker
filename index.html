@@ -292,9 +292,21 @@
     <div class="stat"><span class="sv" id="s-total">0</span><span class="sl">commandes</span></div>
     <div class="stat"><span class="sv" id="s-enc">0</span><span class="sl">en cours</span></div>
     <div class="stat"><span class="sv" id="s-ca">—</span><span class="sl">CA total TTC</span></div>
+    <a href="/prod.html" target="_blank" style="display:flex;align-items:center;gap:5px;padding:6px 12px;background:var(--prune);color:#fff;border-radius:6px;font-size:11px;font-weight:700;text-decoration:none;white-space:nowrap">🏭 Vue Prod</a>
+    <div style="position:relative">
+      <button onclick="toggleProdPanel()" style="background:none;border:none;cursor:pointer;font-size:20px;padding:4px;position:relative" title="Commandes en prod non acquittées">🔔<span id="hdr-bell-count" style="display:none;position:absolute;top:-2px;right:-4px;background:#c0392b;color:#fff;font-size:9px;font-weight:800;border-radius:10px;padding:1px 5px;min-width:16px;text-align:center">0</span></button>
+    </div>
   </div>
 </header>
 
+<!-- PANEL PROD NOTIFS -->
+<div id="prod-panel" style="display:none;position:fixed;top:60px;right:16px;width:300px;background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.12);z-index:200;max-height:380px;overflow-y:auto;">
+  <div style="padding:12px 16px;border-bottom:1px solid var(--border);font-size:12px;font-weight:700;display:flex;justify-content:space-between;align-items:center">
+    <span>🔵 En prod — non acquittés</span>
+    <button onclick="toggleProdPanel()" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:16px">✕</button>
+  </div>
+  <div id="prod-panel-list"></div>
+</div>
 <div class="layout">
   <!-- BARRE FILTRES MOBILE -->
   <div class="mobile-filters" id="mobile-filters">
@@ -572,7 +584,7 @@ function cardHTML(cmd){
 
   return`<div class="card${open?' open':''}" id="card-${cmd.id}">
   <div class="card-hdr" onclick="toggle('${cmd.id}')">
-    <div class="cref">${cmd.reference}${urgencyFlag(cmd)}<div style="font-size:9px;color:var(--muted);font-weight:400;margin-top:1px">${cmd.date}${cmd.versionMaj?`<span style="margin-left:6px;color:#a07a1a;font-weight:600">· MAJ ${cmd.versionMaj}</span>`:''}</div></div>
+    <div class="cref">${cmd.reference}${urgencyFlag(cmd)}${!cmd.prodStatus&&(cmd.lignes||[]).some(l=>l.statut==='production')?'<span style="margin-left:6px;background:rgba(0,135,183,0.15);color:var(--blue);font-size:9px;font-weight:800;padding:2px 6px;border-radius:4px;vertical-align:middle">🔵 PROD</span>':''}<div style="font-size:9px;color:var(--muted);font-weight:400;margin-top:1px">${cmd.date}${cmd.versionMaj?`<span style="margin-left:6px;color:#a07a1a;font-weight:600">· MAJ ${cmd.versionMaj}</span>`:''}</div></div>
     <div class="ccli">
       <div>${cmd.client}</div>
       <div style="display:flex;gap:14px;margin-top:4px;flex-wrap:wrap;font-size:10px;color:var(--muted)">
@@ -852,6 +864,10 @@ function render(){
   ['attente','partiel','paye'].forEach(k=>{const e=document.getElementById('fc-'+k);if(e)e.textContent=pc[k]||0;});
   const ea=document.getElementById('fc-archive');if(ea)ea.textContent=cmds.filter(c=>c.archive&&!c.attenteReglement).length;
   const ear=document.getElementById('fc-attente-reglement');if(ear)ear.textContent=cmds.filter(c=>c.attenteReglement).length;
+  // Cloche prod — BCs en prod non acquittés
+  const nonAcquitte=cmds.filter(c=>!c.archive&&!c.attenteReglement&&(c.lignes||[]).some(l=>l.statut==='production')&&!c.prodStatus).length;
+  const bellEl=document.getElementById('hdr-bell-count');
+  if(bellEl){bellEl.textContent=nonAcquitte;bellEl.style.display=nonAcquitte>0?'block':'none';}
   document.getElementById('ff').innerHTML=`<button class="fb${aFF==='all'?' active':''}" onclick="setFF('all',this)">Tous <span class="fc">${cmds.length}</span></button>`+fournisseurs.map(f=>{const n=cmds.filter(c=>(c.lignes||[]).some(l=>l.fournisseur===f.nom)).length;return`<button class="fb${aFF===f.nom?' active':''}" onclick="setFF('${f.nom}',this)">${f.nom} <span class="fc">${n}</span></button>`;}).join('');
 }
 
@@ -1268,7 +1284,21 @@ function setFilter(val,btn){
   render();
 }
 
-async function loadFournisseurs(){
+async function toggleProdPanel(){
+  const p=document.getElementById('prod-panel');
+  const isOpen=p.style.display==='block';
+  p.style.display=isOpen?'none':'block';
+  if(!isOpen){
+    const liste=cmds.filter(c=>!c.archive&&!c.attenteReglement&&(c.lignes||[]).some(l=>l.statut==='production')&&!c.prodStatus);
+    const el=document.getElementById('prod-panel-list');
+    el.innerHTML=liste.length?liste.map(c=>`<div style="padding:10px 16px;border-bottom:1px solid var(--border);cursor:pointer" onclick="toggleProdPanel();toggle('${c.id}')">
+      <div style="font-size:12px;font-weight:700;color:var(--blue)">🔵 ${c.reference}</div>
+      <div style="font-size:11px;color:var(--muted)">${c.client||'—'}${c.dateLivraison?' · '+new Date(c.dateLivraison).toLocaleDateString('fr-FR',{day:'2-digit',month:'short'}):''}
+      </div>
+    </div>`).join(''):'<div style="padding:20px;text-align:center;color:var(--muted);font-size:12px">Aucune commande non acquittée</div>';
+  }
+}
+function loadFournisseurs(){
   try{
     const r=await fetch('/api/get-fournisseurs');
     const data=await r.json();

@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bar À Textile — Production</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Raleway:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --blue:#0087b7;--yellow:#f5be45;--prune:#87223a;
+    --bg:#f0f4f7;--surface:#fff;--surface2:#f7f9fb;
+    --text:#1a2633;--muted:#7a95a8;--border:#dde4eb;
+    --green:#27ae60;--orange:#e67e22;--red:#c0392b;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{font-family:'Raleway',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+
+  /* HEADER */
+  .brand-bar{height:4px;background:linear-gradient(90deg,var(--prune) 0%,var(--prune) 33%,var(--yellow) 33%,var(--yellow) 66%,var(--blue) 66%);}
+  header{background:var(--surface);border-bottom:1px solid var(--border);padding:12px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:0 1px 4px rgba(0,0,0,0.06);}
+  .logo{font-size:17px;font-weight:800;letter-spacing:-0.3px;}
+  .logo .a{color:var(--blue);}
+  .logo .badge-prod{display:inline-block;margin-left:8px;background:var(--prune);color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;vertical-align:middle;letter-spacing:0.5px;}
+  .hright{display:flex;align-items:center;gap:12px;}
+  .bell{position:relative;cursor:pointer;background:none;border:none;font-size:20px;padding:4px;}
+  .bell-count{position:absolute;top:-2px;right:-4px;background:var(--red);color:#fff;font-size:9px;font-weight:800;border-radius:10px;padding:1px 5px;min-width:16px;text-align:center;display:none;}
+  .bell-count.show{display:block;}
+  .sync{font-size:10px;color:var(--muted);display:flex;align-items:center;gap:4px;}
+  .sync-dot{width:6px;height:6px;border-radius:50%;background:var(--green);}
+  .sync-dot.syncing{background:var(--yellow);animation:pulse 1s infinite;}
+
+  /* TABS */
+  .tabs{display:flex;gap:0;background:var(--surface);border-bottom:2px solid var(--border);padding:0 20px;position:sticky;top:53px;z-index:90;}
+  .tab{padding:12px 20px;font-size:12px;font-weight:700;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-2px;cursor:pointer;transition:color 0.15s;white-space:nowrap;}
+  .tab.active{color:var(--blue);border-bottom-color:var(--blue);}
+  .tab .tc{display:inline-block;background:var(--bg);border-radius:10px;padding:1px 7px;font-size:10px;margin-left:4px;}
+  .tab.active .tc{background:rgba(0,135,183,0.12);color:var(--blue);}
+
+  /* MAIN */
+  .main{max-width:900px;margin:0 auto;padding:20px;}
+
+  /* CARDS */
+  .prod-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;margin-bottom:12px;overflow:hidden;transition:box-shadow 0.15s;}
+  .prod-card:hover{box-shadow:0 3px 12px rgba(0,0,0,0.08);}
+  .prod-card.nouveau{border-left:4px solid var(--blue);}
+  .prod-card.en-attente-prod{border-left:4px solid var(--yellow);}
+  .prod-card.acquitte{border-left:4px solid #ccc;opacity:0.85;}
+
+  .card-top{padding:14px 16px;display:flex;align-items:center;gap:10px;cursor:pointer;}
+  .card-ref{font-size:14px;font-weight:800;flex:1;}
+  .card-client{font-size:12px;color:var(--muted);margin-top:2px;}
+  .card-deadline{font-size:11px;font-weight:700;white-space:nowrap;}
+  .prod-status-badge{padding:4px 10px;border-radius:5px;font-size:10px;font-weight:800;letter-spacing:0.5px;white-space:nowrap;}
+  .psb-nouveau{background:rgba(0,135,183,0.12);color:var(--blue);}
+  .psb-attente{background:rgba(245,190,69,0.2);color:#a07a1a;}
+  .psb-acquitte{background:#f0f0f0;color:#999;}
+  .card-chev{font-size:10px;color:var(--muted);transition:transform 0.2s;}
+  .card-chev.open{transform:rotate(90deg);}
+
+  /* CARD DETAIL */
+  .card-body{display:none;border-top:1px solid var(--border);padding:14px 16px;}
+  .card-body.open{display:block;}
+
+  .info-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px;}
+  .info-box{background:var(--surface2);border-radius:6px;padding:10px 12px;border:1px solid var(--border);}
+  .info-label{font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:3px;}
+  .info-val{font-size:13px;font-weight:700;}
+
+  /* ARTICLES TABLE */
+  .arts-title{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:8px;font-weight:600;}
+  .art-row{display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--border);}
+  .art-row:last-child{border-bottom:none;}
+  .art-mockup{width:60px;height:60px;border-radius:5px;object-fit:cover;border:1px solid var(--border);flex-shrink:0;background:var(--bg);}
+  .art-mockup-empty{width:60px;height:60px;border-radius:5px;border:1px dashed var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--muted);background:var(--bg);}
+  .art-info{flex:1;}
+  .art-name{font-size:13px;font-weight:700;margin-bottom:3px;}
+  .art-marquage{font-size:11px;color:var(--muted);margin-bottom:4px;}
+  .art-tailles{font-size:10px;color:var(--muted);margin-top:4px;}
+  .art-qty{font-size:20px;font-weight:800;color:var(--blue);text-align:right;white-space:nowrap;}
+  .art-qty span{font-size:10px;color:var(--muted);display:block;font-weight:400;}
+
+  /* ACTIONS */
+  .card-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;padding-top:14px;border-top:1px solid var(--border);}
+  .btn{padding:8px 14px;border-radius:6px;font-family:'Raleway',sans-serif;font-size:11px;font-weight:700;cursor:pointer;border:1px solid var(--border);background:var(--surface);color:var(--text);transition:all 0.15s;}
+  .btn:hover{opacity:0.85;}
+  .btn-vu{border-color:rgba(39,174,96,0.4);color:var(--green);background:rgba(39,174,96,0.06);}
+  .btn-attente{border-color:rgba(245,190,69,0.5);color:#a07a1a;background:rgba(245,190,69,0.08);}
+  .btn-pret{border-color:rgba(0,135,183,0.4);color:var(--blue);background:rgba(0,135,183,0.08);font-size:12px;}
+  .btn-wa{background:#25d366;color:#fff;border-color:#25d366;}
+
+  /* EMPTY */
+  .empty{text-align:center;padding:60px 20px;color:var(--muted);}
+  .empty-icon{font-size:48px;margin-bottom:12px;}
+
+  /* TOAST */
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:#1a2633;color:#fff;padding:10px 20px;border-radius:8px;font-size:12px;font-weight:600;opacity:0;transition:all 0.3s;z-index:999;pointer-events:none;white-space:nowrap;}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+  /* NOTIFICATION PANEL */
+  .notif-panel{display:none;position:fixed;top:60px;right:16px;width:320px;background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.12);z-index:200;max-height:400px;overflow-y:auto;}
+  .notif-panel.open{display:block;}
+  .notif-header{padding:12px 16px;border-bottom:1px solid var(--border);font-size:12px;font-weight:700;display:flex;justify-content:space-between;align-items:center;}
+  .notif-item{padding:10px 16px;border-bottom:1px solid var(--border);cursor:pointer;}
+  .notif-item:hover{background:var(--surface2);}
+  .notif-item:last-child{border-bottom:none;}
+  .notif-ref{font-size:12px;font-weight:700;color:var(--blue);}
+  .notif-cli{font-size:11px;color:var(--muted);}
+  .notif-empty{padding:20px;text-align:center;color:var(--muted);font-size:12px;}
+
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.4;}}
+
+  /* MOBILE */
+  @media(max-width:600px){
+    .main{padding:10px;}
+    .info-row{grid-template-columns:1fr 1fr;}
+    .tabs{padding:0 10px;overflow-x:auto;}
+    .tab{padding:10px 14px;font-size:11px;}
+    .notif-panel{width:calc(100vw - 32px);right:16px;}
+  }
+</style>
+</head>
+<body>
+
+<div class="brand-bar"></div>
+<header>
+  <div class="logo">Bar <span class="a">À</span> Textile <span class="badge-prod">PRODUCTION</span></div>
+  <div class="hright">
+    <div class="sync"><div class="sync-dot" id="sync-dot"></div><span id="sync-label">Sync</span></div>
+    <button class="bell" onclick="toggleNotifPanel()" title="Nouvelles commandes">
+      🔔<span class="bell-count" id="bell-count">0</span>
+    </button>
+  </div>
+</header>
+
+<!-- PANEL NOTIFICATIONS -->
+<div class="notif-panel" id="notif-panel">
+  <div class="notif-header">
+    <span>🔵 Nouvelles commandes prod</span>
+    <button onclick="toggleNotifPanel()" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:16px">✕</button>
+  </div>
+  <div id="notif-list"></div>
+</div>
+
+<!-- TABS -->
+<div class="tabs">
+  <div class="tab active" onclick="setTab('nouveau',this)">🔵 Nouveau <span class="tc" id="tc-nouveau">0</span></div>
+  <div class="tab" onclick="setTab('en-attente-prod',this)">⏸ En attente <span class="tc" id="tc-attente">0</span></div>
+  <div class="tab" onclick="setTab('acquitte',this)">✓ En cours <span class="tc" id="tc-acquitte">0</span></div>
+  <div class="tab" onclick="setTab('pret',this)">✅ Prêts <span class="tc" id="tc-pret">0</span></div>
+</div>
+
+<div class="main" id="cards"></div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SUPABASE_URL='https://cjqrklqqkromhsyvkxff.supabase.co';
+const SUPABASE_KEY='sb_publishable_nw-gje04Jj5jD21__gupHQ_M_N5Mp0c';
+
+let cmds=[];
+let currentTab='nouveau';
+let openId=null;
+let lastIds=new Set();
+
+// ── UTILS ──
+function fmt(n){if(!n)return'—';return new Number(n).toLocaleString('fr-FR',{minimumFractionDigits:0,maximumFractionDigits:0})+' DH';}
+function showToast(msg,dur=2500){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),dur);}
+function urgencyDays(cmd){
+  if(!cmd.dateLivraison)return null;
+  const d=new Date(cmd.dateLivraison);if(isNaN(d))return null;
+  return Math.ceil((d-new Date())/(1000*60*60*24));
+}
+function deadlineHTML(cmd){
+  const d=urgencyDays(cmd);
+  if(!cmd.dateLivraison)return'<span style="color:var(--muted);font-size:11px">Pas de deadline</span>';
+  const flag=d<=0?'🔴':d<=5?'🔴':d<=10?'🟠':'';
+  const color=d<=5?'var(--red)':d<=10?'var(--orange)':'var(--muted)';
+  const label=d<=0?'Dépassée':`${d}j restants`;
+  return`<div style="font-size:12px;color:${color};font-weight:700">${flag} ${new Date(cmd.dateLivraison).toLocaleDateString('fr-FR',{day:'2-digit',month:'short'})}</div><div style="font-size:9px;color:${color}">${label}</div>`;
+}
+function taillesHTML(tailles){
+  if(!tailles)return'';
+  const t=Object.entries(tailles).filter(([k,v])=>v>0).map(([k,v])=>`${k}:${v}`).join(' · ');
+  return t?`<div class="art-tailles">📐 ${t}</div>`:'';
+}
+const isMobileAndroid=/Android/i.test(navigator.userAgent);
+function openWA(tel,text=''){
+  const num=(tel||'').replace(/\D/g,'');if(!num)return;
+  const txt=text?encodeURIComponent(text):'';
+  if(isMobileAndroid){
+    const fallback=`https://wa.me/${num}${text?'?text='+txt:''}`;
+    const iframe=document.createElement('iframe');iframe.style.display='none';document.body.appendChild(iframe);
+    iframe.src=`intent://send?phone=${num}${text?'&text='+txt:''}#Intent;scheme=whatsapp;package=com.whatsapp.w4b;S.browser_fallback_url=${encodeURIComponent(fallback)};end`;
+    setTimeout(()=>document.body.removeChild(iframe),3000);
+  }else{window.open(`https://wa.me/${num}${text?'?text='+txt:''}`, '_blank');}
+}
+
+// ── TABS ──
+function setTab(tab, el){
+  currentTab=tab;
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  openId=null;
+  renderCards();
+}
+
+// ── LOAD & POLL ──
+async function loadBCs(){
+  setSyncing(true);
+  try{
+    const r=await fetch('/api/get-bcs');
+    const data=await r.json();
+    if(!r.ok)throw new Error(data.error);
+    // Détecter les nouveaux BCs en prod
+    const newProdIds=new Set(data.filter(c=>hasProd(c)&&!c.prodStatus).map(c=>c.id));
+    newProdIds.forEach(id=>{if(!lastIds.has(id)){}});
+    lastIds=new Set(data.filter(c=>hasProd(c)).map(c=>c.id));
+    cmds=data;
+    renderCards();
+    updateCounts();
+  }catch(err){showToast('Erreur chargement : '+err.message);}
+  finally{setSyncing(false);}
+}
+
+function hasProd(cmd){
+  return(cmd.lignes||[]).some(l=>(l.statut||'simulation')==='production'||l.statut==='pret');
+}
+function isFullyPret(cmd){
+  const lignes=(cmd.lignes||[]).filter(l=>['production','pret'].includes(l.statut||''));
+  return lignes.length>0&&lignes.every(l=>l.statut==='pret');
+}
+
+function setSyncing(v){
+  const dot=document.getElementById('sync-dot');
+  const lbl=document.getElementById('sync-label');
+  dot.classList.toggle('syncing',v);
+  lbl.textContent=v?'Sync…':'Sync';
+}
+
+// ── SAVE ──
+async function saveBC(cmd){
+  setSyncing(true);
+  try{
+    await fetch('/api/save-bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(cmd)});
+  }catch(err){showToast('Erreur sauvegarde : '+err.message);}
+  finally{setSyncing(false);}
+}
+
+// ── PROD ACTIONS ──
+function setProdStatus(id, status){
+  const cmd=cmds.find(x=>x.id===id);if(!cmd)return;
+  cmd.prodStatus=status;
+  saveBC(cmd);renderCards();updateCounts();
+  const labels={vu:'👁 Acquitté',attente:'⏸ Mis en attente'};
+  showToast(labels[status]||'✓ Mis à jour');
+}
+
+function marquerPret(id){
+  const cmd=cmds.find(x=>x.id===id);if(!cmd)return;
+  // Passe tous les articles "en production" en "prêt"
+  (cmd.lignes||[]).forEach(l=>{if((l.statut||'simulation')==='production')l.statut='pret';});
+  cmd.prodStatus='pret';
+  saveBC(cmd);renderCards();updateCounts();
+  showToast('✅ Commande marquée Prête !',3000);
+}
+
+function toggle(id){openId=openId===id?null:id;renderCards();}
+
+// ── NOTIFICATIONS ──
+function toggleNotifPanel(){
+  document.getElementById('notif-panel').classList.toggle('open');
+  renderNotifPanel();
+}
+function renderNotifPanel(){
+  const nouveaux=cmds.filter(c=>hasProd(c)&&!c.prodStatus);
+  const list=document.getElementById('notif-list');
+  if(!nouveaux.length){
+    list.innerHTML='<div class="notif-empty">Aucune nouvelle commande</div>';return;
+  }
+  list.innerHTML=nouveaux.map(c=>`
+    <div class="notif-item" onclick="goToCmd('${c.id}')">
+      <div class="notif-ref">🔵 ${c.reference}</div>
+      <div class="notif-cli">${c.client||'—'} · ${c.dateLivraison?new Date(c.dateLivraison).toLocaleDateString('fr-FR',{day:'2-digit',month:'short'}):'Pas de deadline'}</div>
+    </div>`).join('');
+}
+function goToCmd(id){
+  document.getElementById('notif-panel').classList.remove('open');
+  // Basculer sur l'onglet "nouveau" et scroller jusqu'à la carte
+  currentTab='nouveau';
+  document.querySelectorAll('.tab').forEach((t,i)=>{if(i===0)t.classList.add('active');else t.classList.remove('active');});
+  openId=id;
+  renderCards();
+  setTimeout(()=>{const el=document.getElementById('card-'+id);if(el)el.scrollIntoView({behavior:'smooth',block:'center'});},100);
+}
+
+// ── COUNTS ──
+function updateCounts(){
+  const prod=cmds.filter(c=>hasProd(c)&&!c.attenteReglement&&!c.archive);
+  const nouveau=prod.filter(c=>!c.prodStatus);
+  const attente=prod.filter(c=>c.prodStatus==='attente');
+  const acquitte=prod.filter(c=>c.prodStatus==='vu');
+  const pret=prod.filter(c=>isFullyPret(c));
+  document.getElementById('tc-nouveau').textContent=nouveau.length;
+  document.getElementById('tc-attente').textContent=attente.length;
+  document.getElementById('tc-acquitte').textContent=acquitte.length;
+  document.getElementById('tc-pret').textContent=pret.length;
+  const bellCount=document.getElementById('bell-count');
+  bellCount.textContent=nouveau.length;
+  bellCount.classList.toggle('show',nouveau.length>0);
+}
+
+// ── RENDER ──
+function renderCards(){
+  updateCounts();
+  const prod=cmds.filter(c=>hasProd(c)&&!c.attenteReglement&&!c.archive);
+  let filtered;
+  if(currentTab==='nouveau') filtered=prod.filter(c=>!c.prodStatus);
+  else if(currentTab==='en-attente-prod') filtered=prod.filter(c=>c.prodStatus==='attente');
+  else if(currentTab==='acquitte') filtered=prod.filter(c=>c.prodStatus==='vu'&&!isFullyPret(c));
+  else if(currentTab==='pret') filtered=prod.filter(c=>isFullyPret(c));
+  else filtered=prod;
+
+  // Tri par urgence
+  filtered.sort((a,b)=>{
+    const da=urgencyDays(a)??99999,db=urgencyDays(b)??99999;
+    return da-db;
+  });
+
+  if(!filtered.length){
+    const labels={nouveau:'Aucune nouvelle commande 🎉',  'en-attente-prod':'Aucune commande en attente','acquitte':'Aucune commande en cours','pret':'Aucune commande prête'};
+    document.getElementById('cards').innerHTML=`<div class="empty"><div class="empty-icon">✅</div><p>${labels[currentTab]||'—'}</p></div>`;
+    return;
+  }
+
+  document.getElementById('cards').innerHTML=filtered.map(cmd=>{
+    const statusClass=!cmd.prodStatus?'nouveau':cmd.prodStatus==='attente'?'en-attente-prod':'acquitte';
+    const statusBadge=!cmd.prodStatus?'<span class="prod-status-badge psb-nouveau">🔵 NOUVEAU</span>':cmd.prodStatus==='attente'?'<span class="prod-status-badge psb-attente">⏸ EN ATTENTE</span>':'<span class="prod-status-badge psb-acquitte">👁 VU</span>';
+    const isOpen=openId===cmd.id;
+
+    // Articles en prod/pret uniquement
+    const articlesEnProd=(cmd.lignes||[]).filter(l=>['production','pret'].includes(l.statut||''));
+    const artRows=articlesEnProd.map(l=>`
+      <div class="art-row">
+        ${l.mockup?`<img class="art-mockup" src="${l.mockup}" alt="">`:`<div class="art-mockup-empty">👕</div>`}
+        <div class="art-info">
+          <div class="art-name">${l.description}${l.statut==='pret'?' <span style="font-size:10px;color:var(--green);font-weight:700">✅ Prêt</span>':''}</div>
+          ${l.marquage?`<div class="art-marquage">📍 ${l.marquage}</div>`:''}
+          ${l.fournisseur?`<div style="font-size:10px;color:var(--muted)">Fournisseur : ${l.fournisseur}</div>`:''}
+          ${taillesHTML(l.tailles)}
+        </div>
+        <div class="art-qty">${l.quantite}<span>unités</span></div>
+      </div>`).join('');
+
+    const modeRemise=cmd.livraison==='livraison'?'🚚 Livraison':'🛍 À emporter';
+
+    const actions=currentTab==='pret'?`
+      <div class="card-actions">
+        ${cmd.tel?`<button class="btn btn-wa" onclick="openWA('${cmd.tel}','Bonjour, votre commande ${cmd.reference} est prête ! ${cmd.livraison==='livraison'?'Livraison en cours.':'Vous pouvez venir la récupérer.'} — Bar À Textile')">📲 Notifier client</button>`:''}
+      </div>`:
+    currentTab==='nouveau'?`
+      <div class="card-actions">
+        <button class="btn btn-vu" onclick="setProdStatus('${cmd.id}','vu')">👁 J'ai vu</button>
+        <button class="btn btn-attente" onclick="setProdStatus('${cmd.id}','attente')">⏸ Mettre en attente</button>
+        <button class="btn btn-pret" onclick="marquerPret('${cmd.id}')">✅ Marquer Prêt</button>
+      </div>`:`
+      <div class="card-actions">
+        ${cmd.prodStatus==='attente'?`<button class="btn btn-vu" onclick="setProdStatus('${cmd.id}','vu')">👁 Prendre en charge</button>`:''}
+        <button class="btn btn-pret" onclick="marquerPret('${cmd.id}')">✅ Marquer Prêt</button>
+        ${cmd.tel?`<button class="btn btn-wa" onclick="openWA('${cmd.tel}','Bonjour, votre commande ${cmd.reference} est prête ! ${cmd.livraison==='livraison'?'Livraison en cours.':'Vous pouvez venir la récupérer.'} — Bar À Textile')">📲 Notifier client</button>`:''}
+      </div>`;
+
+    return`<div class="prod-card ${statusClass}" id="card-${cmd.id}">
+      <div class="card-top" onclick="toggle('${cmd.id}')">
+        <div style="flex:1">
+          <div class="card-ref">${cmd.reference} ${statusBadge}</div>
+          <div class="card-client">${cmd.client||'—'} ${cmd.contact?'· '+cmd.contact:''}</div>
+        </div>
+        <div style="text-align:right">${deadlineHTML(cmd)}</div>
+        <div class="card-chev ${isOpen?'open':''}">▶</div>
+      </div>
+      <div class="card-body ${isOpen?'open':''}">
+        <div class="info-row">
+          <div class="info-box"><div class="info-label">Contact</div><div class="info-val">${cmd.contact||'—'}</div>${cmd.tel?`<div style="font-size:11px;color:var(--muted);margin-top:2px">📞 ${cmd.tel}</div>`:''}</div>
+          <div class="info-box"><div class="info-label">Mode remise</div><div class="info-val" style="font-size:12px">${modeRemise}</div></div>
+          <div class="info-box"><div class="info-label">Articles en prod</div><div class="info-val">${articlesEnProd.length}</div></div>
+        </div>
+        <div class="arts-title">Articles</div>
+        ${artRows}
+        ${actions}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── INIT & POLL ──
+loadBCs();
+setInterval(loadBCs,15000); // refresh toutes les 15s
+</script>
+</body>
+</html>
