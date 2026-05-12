@@ -182,13 +182,64 @@
   @keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.4;}}
 
   /* MOBILE */
-  @media(max-width:600px){
+  @media(max-width:768px){
+    /* Header */
+    header{padding:10px 14px;}
+    .logo .badge-prod{font-size:9px;padding:2px 6px;}
+
+    /* Sidebar cachée → onglets scrollables */
     .sidebar{display:none;}
-    .main{padding:10px;}
-    .info-row{grid-template-columns:1fr 1fr;}
-    .tabs{padding:0 10px;overflow-x:auto;}
-    .tab{padding:10px 14px;font-size:11px;}
-    .notif-panel{width:calc(100vw - 32px);right:16px;}
+    .layout{display:block;}
+    .main{padding:8px 10px 80px;}
+
+    /* Tabs scrollables */
+    .tabs{padding:0 10px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;flex-wrap:nowrap;}
+    .tabs::-webkit-scrollbar{display:none;}
+    .tab{padding:10px 12px;font-size:11px;white-space:nowrap;flex-shrink:0;}
+
+    /* Cartes prod simples (Nouveau, En attente, Prêts) */
+    .prod-card{border-radius:6px;}
+    .card-top{padding:12px 14px;gap:8px;}
+    .card-ref{font-size:13px;}
+    .card-client{font-size:11px;}
+    .card-body{padding:10px 14px;}
+    .info-row{grid-template-columns:1fr 1fr;gap:8px;}
+    .info-box{padding:8px 10px;}
+    .info-val{font-size:12px;}
+    .art-row{gap:8px;}
+    .art-mockup{width:50px;height:50px;}
+    .art-mockup-empty{width:50px;height:50px;}
+    .art-name{font-size:12px;}
+    .art-qty{font-size:18px;}
+    .card-actions{gap:6px;}
+    .btn{font-size:10px;padding:7px 10px;}
+
+    /* Carte style commercial (vue En cours) */
+    .card-com{border-radius:6px;}
+    .card-hdr{grid-template-columns:1fr auto auto;gap:6px;padding:12px 14px;flex-wrap:wrap;}
+    .card-hdr > div:first-child{grid-column:1;grid-row:1;}
+    .card-hdr > div:nth-child(2){grid-column:1;grid-row:2;}
+    .cbadge{display:none;} /* cache les badges sur mobile pour gagner de la place */
+    .ctot{font-size:12px;}
+    .btn-wa-hdr{width:26px;height:26px;}
+    .com-chev{display:none;}
+    .card-det-com{padding:12px 14px;}
+    .ro-grid{grid-template-columns:1fr 1fr;gap:8px;}
+    .ro-box{padding:8px 10px;}
+    .ro-val{font-size:12px;}
+
+    /* Tableau articles → cards empilées */
+    .lt thead{display:none;}
+    .lt tbody tr{display:block;border:1px solid var(--border);border-radius:6px;margin-bottom:8px;padding:10px 12px;background:var(--surface);}
+    .lt tbody td{display:block;border:none;padding:3px 0;}
+    .lt tbody td:first-child{display:flex;align-items:center;gap:8px;margin-bottom:4px;}
+
+    /* Pipeline boutons plus grands sur mobile */
+    .ap-btn{padding:7px 12px;font-size:11px;}
+    .art-pipeline{gap:6px;margin-top:10px;}
+
+    /* Panel notifs */
+    .notif-panel{width:calc(100vw - 24px);right:12px;}
   }
 </style>
 </head>
