@@ -130,7 +130,46 @@
   .notif-cli{font-size:11px;color:var(--muted);}
   .notif-empty{padding:20px;text-align:center;color:var(--muted);font-size:12px;}
 
-  /* PIPELINE ARTICLE PROD */
+  /* COMMERCIAL CARD STYLE (vue En cours) */
+  .card-com{background:var(--surface);border:1px solid var(--border);border-radius:8px;margin-bottom:10px;overflow:hidden;transition:box-shadow 0.15s,border-color 0.15s;}
+  .card-com:hover{box-shadow:0 2px 10px rgba(0,135,183,0.08);}
+  .card-com.open{border-color:var(--blue);box-shadow:0 2px 12px rgba(0,135,183,0.12);}
+  .card-hdr{display:grid;grid-template-columns:130px 1fr auto auto auto 20px;align-items:center;gap:14px;padding:14px 20px;cursor:pointer;}
+  .cref{font-family:'Raleway',sans-serif;font-weight:700;font-size:15px;color:var(--blue);}
+  .ccli{font-size:13px;color:var(--text);}
+  .ccli small{display:block;color:var(--muted);font-size:10px;margin-top:1px;}
+  .ctot{font-family:'Raleway',sans-serif;font-weight:700;font-size:14px;color:var(--blue);white-space:nowrap;}
+  .cbadge{padding:3px 9px;border-radius:4px;font-size:9px;font-weight:600;letter-spacing:0.6px;text-transform:uppercase;white-space:nowrap;}
+  .bs{background:rgba(56,176,208,0.1);color:#0074a4;border:1px solid rgba(56,176,208,0.3);}
+  .bv{background:rgba(245,190,69,0.15);color:#a07a1a;border:1px solid rgba(245,190,69,0.4);}
+  .bp{background:rgba(0,135,183,0.1);color:#005f85;border:1px solid rgba(0,135,183,0.25);}
+  .bpr{background:var(--blue);color:#fff;border:1px solid var(--blue);}
+  .bl{background:#f0f4f7;color:var(--muted);border:1px solid var(--border);}
+  .bat{background:rgba(245,190,69,0.12);color:#a07a1a;border:1px solid rgba(245,190,69,0.3);}
+  .bpa{background:rgba(135,34,58,0.08);color:var(--prune);border:1px solid rgba(135,34,58,0.25);}
+  .bpy{background:rgba(0,135,183,0.1);color:#005f85;border:1px solid rgba(0,135,183,0.25);}
+  .com-chev{color:var(--muted);font-size:10px;transition:transform 0.2s;}
+  .card-com.open .com-chev{transform:rotate(90deg);}
+  .card-det-com{display:none;border-top:1px solid var(--border);padding:20px;}
+  .card-com.open .card-det-com{display:block;}
+  /* Tableau articles */
+  .lt{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:18px;}
+  .lt th{padding:8px 10px;text-align:left;font-size:9px;letter-spacing:0.8px;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border);font-weight:600;background:var(--surface2);}
+  .lt td{padding:10px;border-bottom:1px solid var(--border);vertical-align:middle;}
+  .lt tr:last-child td{border-bottom:none;}
+  .lt tbody tr:hover td{background:rgba(0,135,183,0.02);}
+  .tpill{padding:3px 8px;border-radius:4px;font-size:9px;text-transform:uppercase;letter-spacing:0.4px;font-weight:600;}
+  .tg{background:rgba(0,135,183,0.08);color:#005f85;}
+  .tt{background:rgba(135,34,58,0.08);color:var(--prune);}
+  /* Champs lecture seule */
+  .ro-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px;}
+  .ro-box{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:12px;}
+  .ro-label{font-size:9px;letter-spacing:1px;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:6px;font-weight:600;}
+  .ro-val{font-size:13px;font-weight:700;color:var(--text);}
+  .ro-val.acc{color:var(--blue);}
+  .ro-notes{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:12px;margin-bottom:16px;}
+  .ro-notes .ro-label{margin-bottom:4px;}
+  .ro-notes p{font-size:12px;color:var(--text);line-height:1.5;}
   .art-pipeline{display:flex;gap:4px;margin-top:8px;flex-wrap:wrap;}
   .ap-btn{padding:5px 10px;border-radius:5px;font-size:10px;font-weight:700;cursor:pointer;border:1px solid var(--border);background:var(--surface2);color:var(--muted);transition:all 0.15s;font-family:'Raleway',sans-serif;}
   .ap-btn:hover{opacity:0.8;}
@@ -244,8 +283,103 @@ function updateSidebar(){
   }).join('');
 }
 
-// ── UTILS ──
-function fmt(n){if(!n)return'—';return new Number(n).toLocaleString('fr-FR',{minimumFractionDigits:0,maximumFractionDigits:0})+' DH';}
+const STEPS=[{key:'simulation',label:'Simulation'},{key:'validation',label:'Validation'},{key:'production',label:'En prod'},{key:'pret',label:'Prêt'},{key:'livre',label:'Livré'}];
+const SIDX=Object.fromEntries(STEPS.map((s,i)=>[s.key,i]));
+const SL={simulation:'Simulation',validation:'Validation',production:'En prod',pret:'Prêt',livre:'Livré'};
+const PL={attente:'En attente',partiel:'Partiel',paye:'Réglé'};
+const BC={simulation:'bs',validation:'bv',production:'bp',pret:'bpr',livre:'bl',attente:'bat',partiel:'bpa',paye:'bpy'};
+function bcS(cmd){if(!cmd.lignes||!cmd.lignes.length)return'simulation';return STEPS[Math.min(...cmd.lignes.map(l=>SIDX[l.statut||'simulation']??0))].key;}
+
+// ── CARTE STYLE COMMERCIAL (vue En cours) ──
+function cardHTMLCom(cmd){
+  const isOpen=openId===cmd.id;
+  const gs=bcS(cmd);
+  const articlesEnProd=(cmd.lignes||[]).filter(l=>['production','pret'].includes(l.statut||''));
+  const nbPrets=articlesEnProd.filter(l=>l.prodStat==='pret'||l.statut==='pret').length;
+  const nbTotal=articlesEnProd.length;
+
+  const rows=articlesEnProd.map((l,i)=>{
+    const realIdx=(cmd.lignes||[]).indexOf(l);
+    const ps=l.prodStat||'afaire';
+    return`<tr>
+      <td class="mockup-cell-ro">${l.mockup?`<img src="${l.mockup}" style="width:44px;height:44px;border-radius:5px;object-fit:cover;border:1px solid var(--border);cursor:pointer" onclick="openLightbox('${l.mockup}')" title="Voir en grand">`:'<div style="width:44px;height:44px;border-radius:5px;border:1px dashed var(--border);background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:16px">👕</div>'}</td>
+      <td><span class="tpill ${l.type==='goodies'?'tg':'tt'}">${l.type}</span></td>
+      <td>
+        <strong style="font-size:12px">${l.description}</strong>
+        ${l.marquage?`<div style="font-size:10px;color:var(--muted);margin-top:2px">📍 ${l.marquage}</div>`:''}
+        ${l.fournisseur?`<div style="font-size:10px;color:var(--muted)">📦 ${l.fournisseur}</div>`:''}
+        ${taillesHTMLCom(l.tailles)}
+      </td>
+      <td style="text-align:center;font-weight:700">${l.quantite}</td>
+      <td>
+        <div class="art-pipeline">
+          <button class="ap-btn${ps==='afaire'?' active-afaire':''}" onclick="setArticleProdStatus('${cmd.id}',${realIdx},'afaire')">⬜ À faire</button>
+          <button class="ap-btn${ps==='encours'?' active-encours':''}" onclick="setArticleProdStatus('${cmd.id}',${realIdx},'encours')">🔄 En cours</button>
+          <button class="ap-btn${ps==='pret'?' active-pret':''}" onclick="setArticleProdStatus('${cmd.id}',${realIdx},'pret')">✅ Prêt</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+
+  // Champs infos lecture seule
+  const modeRemise=cmd.livraison==='livraison'?'🚚 Livraison':'🛍 À emporter';
+  const days=urgencyDays(cmd);
+  const dateColor=days===null?'var(--muted)':days<=5?'var(--red)':days<=10?'var(--orange)':'var(--text)';
+  const dateVal=cmd.dateLivraison?`<span style="color:${dateColor}">${new Date(cmd.dateLivraison).toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'})}${days!==null&&days<=10?` (${days<=0?'dépassée':`${days}j`})`:''}</span>`:'—';
+
+  return`<div class="card-com${isOpen?' open':''}" id="card-${cmd.id}">
+    <div class="card-hdr" onclick="toggle('${cmd.id}')">
+      <div>
+        <div class="cref">${cmd.reference}${!cmd.prodStatus?'<span style="margin-left:6px;background:rgba(0,135,183,0.15);color:var(--blue);font-size:9px;font-weight:800;padding:2px 6px;border-radius:4px">🔵 NOUVEAU</span>':''}</div>
+        <div style="font-size:9px;color:var(--muted);margin-top:1px">${cmd.date||''}</div>
+      </div>
+      <div>
+        <div class="ccli">${cmd.client||'—'}<small>${cmd.contact||''}</small></div>
+      </div>
+      <span class="cbadge ${BC[gs]}">${SL[gs]}</span>
+      <span class="cbadge ${BC[cmd.paiement||'attente']}">${PL[cmd.paiement||'attente']}</span>
+      <div class="ctot">${fmt(cmd.totalTTC)}</div>
+      <div class="com-chev">▶</div>
+    </div>
+    <div class="card-det-com">
+      ${nbTotal>0?`<div style="background:${nbPrets===nbTotal?'rgba(39,174,96,0.08)':'rgba(0,135,183,0.06)'};border:1px solid ${nbPrets===nbTotal?'rgba(39,174,96,0.3)':'rgba(0,135,183,0.2)'};border-radius:6px;padding:8px 14px;margin-bottom:14px;font-size:12px;font-weight:700;color:${nbPrets===nbTotal?'var(--green)':'var(--blue)'}">
+        ${nbPrets===nbTotal?'✅':'🔄'} ${nbPrets}/${nbTotal} article${nbTotal>1?'s':''} prêt${nbPrets>1?'s':''}
+      </div>`:''}
+      <table class="lt">
+        <thead><tr>
+          <th style="width:54px">Mockup</th>
+          <th style="width:70px">Type</th>
+          <th>Article / Marquage</th>
+          <th style="text-align:center;width:50px">Qté</th>
+          <th>Avancement</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <div class="ro-grid">
+        <div class="ro-box"><span class="ro-label">Client</span><div class="ro-val">${cmd.client||'—'}</div>${cmd.contact?`<div style="font-size:11px;color:var(--muted);margin-top:3px">👤 ${cmd.contact}</div>`:''}${cmd.tel?`<div style="font-size:11px;color:var(--muted)">📞 ${cmd.tel}</div>`:''}</div>
+        <div class="ro-box"><span class="ro-label">Date limite</span><div class="ro-val">${dateVal}</div></div>
+        <div class="ro-box"><span class="ro-label">Mode remise</span><div class="ro-val" style="font-size:12px">${modeRemise}</div></div>
+        <div class="ro-box"><span class="ro-label">Paiement</span><div class="ro-val"><span class="cbadge ${BC[cmd.paiement||'attente']}" style="font-size:11px">${PL[cmd.paiement||'attente']}</span></div></div>
+        <div class="ro-box"><span class="ro-label">Total TTC</span><div class="ro-val acc">${fmt(cmd.totalTTC)}</div></div>
+        <div class="ro-box"><span class="ro-label">Fournisseurs</span><div class="ro-val" style="font-size:11px">${[...new Set((cmd.lignes||[]).map(l=>l.fournisseur).filter(Boolean))].join(', ')||'—'}</div></div>
+      </div>
+      ${cmd.notes?`<div class="ro-notes"><span class="ro-label">Notes internes</span><p>${cmd.notes}</p></div>`:''}
+      <div class="card-actions">
+        ${btnRemettreNouveau(cmd.id)}
+        ${cmd.tel?`<button class="btn btn-wa" onclick="openWA('${cmd.tel}','Bonjour, votre commande ${cmd.reference} est prête ! ${cmd.livraison==='livraison'?'Livraison en cours.':'Vous pouvez venir la récupérer.'} — Bar À Textile')" ${nbPrets<nbTotal?'style="opacity:0.4;cursor:not-allowed" disabled':''}>📲 Notifier client</button>`:''}
+      </div>
+    </div>
+  </div>`;
+}
+
+function taillesHTMLCom(tailles){
+  if(!tailles)return'';
+  const t=Object.entries(tailles).filter(([k,v])=>v>0).map(([k,v])=>`${k}:${v}`).join(' · ');
+  return t?`<div style="font-size:10px;color:var(--muted);margin-top:4px">📐 ${t}</div>`:'';
+}
+function btnRemettreNouveau(id){
+  return`<button class="btn" style="border-color:rgba(0,135,183,0.3);color:var(--blue);background:rgba(0,135,183,0.06)" onclick="remettreEnNouveau('${id}')">🔵 Remettre en Nouveau</button>`;
+}
 function showToast(msg,dur=2500){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),dur);}
 function urgencyDays(cmd){
   if(!cmd.dateLivraison)return null;
@@ -442,6 +576,9 @@ function renderCards(){
   }
 
   document.getElementById('cards').innerHTML=filtered.map(cmd=>{
+    // Vue "En cours" → style commercial
+    if(currentTab==='acquitte') return cardHTMLCom(cmd);
+    // Autres vues → style prod simplifié
     const statusClass=!cmd.prodStatus?'nouveau':cmd.prodStatus==='attente'?'en-attente-prod':'acquitte';
     const statusBadge=!cmd.prodStatus?'<span class="prod-status-badge psb-nouveau">🔵 NOUVEAU</span>':cmd.prodStatus==='attente'?'<span class="prod-status-badge psb-attente">⏸ EN ATTENTE</span>':'<span class="prod-status-badge psb-acquitte">👁 VU</span>';
     const isOpen=openId===cmd.id;
