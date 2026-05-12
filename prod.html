@@ -328,6 +328,7 @@ function cardHTMLCom(cmd){
   const dateColor=days===null?'var(--muted)':days<=5?'var(--red)':days<=10?'var(--orange)':'var(--text)';
   const dateVal=cmd.dateLivraison?`<span style="color:${dateColor}">${new Date(cmd.dateLivraison).toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'})}${days!==null&&days<=10?` (${days<=0?'dépassée':`${days}j`})`:''}</span>`:'—';
   const dateShort=cmd.dateLivraison?`<div style="font-size:11px;color:${dateColor};font-weight:700;margin-top:2px">${flag} ${new Date(cmd.dateLivraison).toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'numeric'})}</div>`:'';
+  const modeRemise=cmd.livraison==='livraison'?'🚚 Livraison':'🛍 À emporter';
 
   return`<div class="card-com${isOpen?' open':''}" id="card-${cmd.id}">
     <div class="card-hdr" onclick="toggle('${cmd.id}')">
