@@ -381,6 +381,7 @@ function btnRemettreNouveau(id){
   return`<button class="btn" style="border-color:rgba(0,135,183,0.3);color:var(--blue);background:rgba(0,135,183,0.06)" onclick="remettreEnNouveau('${id}')">🔵 Remettre en Nouveau</button>`;
 }
 function showToast(msg,dur=2500){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),dur);}
+const fmt=n=>(n||0).toLocaleString('fr-FR',{minimumFractionDigits:2})+' DH';
 function urgencyDays(cmd){
   if(!cmd.dateLivraison)return null;
   const d=new Date(cmd.dateLivraison);if(isNaN(d))return null;
