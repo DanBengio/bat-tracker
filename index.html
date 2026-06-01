@@ -594,9 +594,12 @@ function cardHTML(cmd){
   const waV=`Bonjour,\n\nVotre simulation pour *${cmd.reference}* est prête.\nMerci de valider pour lancer la production.\n\nCordialement,\nBar À Textile`;
   const waR=`Bonjour,\n\nVotre commande *${cmd.reference}* est prête !\n${cmd.livraison==='livraison'?'Livraison en cours.':'Vous pouvez la récupérer.'}\n\nBar À Textile`;
 
+  const allPret=(cmd.lignes||[]).length>0&&(cmd.lignes||[]).every(l=>l.statut==='pret');
+  const enveloppeIcon=allPret?'<span title="Tous les articles sont prêts — BL & Facture à demander" style="margin-left:6px;font-size:14px;vertical-align:middle">✉️</span>':'';
+
   return`<div class="card${open?' open':''}" id="card-${cmd.id}">
   <div class="card-hdr" onclick="toggle('${cmd.id}')">
-    <div class="cref">${cmd.reference}${urgencyFlag(cmd)}${!cmd.prodStatus&&(cmd.lignes||[]).some(l=>l.statut==='production')?'<span style="margin-left:6px;background:rgba(0,135,183,0.15);color:var(--blue);font-size:9px;font-weight:800;padding:2px 6px;border-radius:4px;vertical-align:middle">🔵 PROD</span>':''}<div style="font-size:9px;color:var(--muted);font-weight:400;margin-top:1px">${cmd.date}${cmd.versionMaj?`<span style="margin-left:6px;color:#a07a1a;font-weight:600">· MAJ ${cmd.versionMaj}</span>`:''}</div></div>
+    <div class="cref">${cmd.reference}${urgencyFlag(cmd)}${enveloppeIcon}${!cmd.prodStatus&&(cmd.lignes||[]).some(l=>l.statut==='production')?'<span style="margin-left:6px;background:rgba(0,135,183,0.15);color:var(--blue);font-size:9px;font-weight:800;padding:2px 6px;border-radius:4px;vertical-align:middle">🔵 PROD</span>':''}<div style="font-size:9px;color:var(--muted);font-weight:400;margin-top:1px">${cmd.date}${cmd.versionMaj?`<span style="margin-left:6px;color:#a07a1a;font-weight:600">· MAJ ${cmd.versionMaj}</span>`:''}</div></div>
     <div class="ccli">
       <div>${cmd.client}</div>
       <div style="display:flex;gap:14px;margin-top:4px;flex-wrap:wrap;font-size:10px;color:var(--muted)">
@@ -648,6 +651,7 @@ function cardHTML(cmd){
       <button class="btn bwa" onclick="openWAMsg('${cmd.id}','prod')">🏭 Notifier prod</button>
       <button class="btn bwa" onclick="openWAMsg('${cmd.id}','valid')">👤 Validation client</button>
       <button class="btn bwa" onclick="openWAMsg('${cmd.id}','pret')">📦 Commande prête</button>
+      ${allPret?`<button class="btn" style="border-color:rgba(135,34,58,0.3);color:var(--prune);background:rgba(135,34,58,0.06);font-weight:700" onclick="demanderBLFacture('${cmd.id}')">✉️ Demander BL + Facture</button>`:''}
       <button class="btn" style="border-color:rgba(245,190,69,0.5);color:#a07a1a;background:rgba(245,190,69,0.07);font-weight:700" onclick="openUpdatePDF('${cmd.id}')">📄 Mettre à jour BC</button>
       ${archiveBtn(cmd)}
       <button class="btn" style="border-color:rgba(0,135,183,0.4);color:var(--blue);background:rgba(0,135,183,0.07);font-weight:700" onclick="printFicheProd('${cmd.id}')">🖨 Fiche prod</button>
@@ -1174,6 +1178,12 @@ function openWAMsg(cmdId, type){
   const msg=type==='prod'?waP:type==='valid'?waV:waR;
   const tel=cmd.tel?cmd.tel.replace(/\D/g,''):'';
   openWA(tel,msg);
+}
+
+function demanderBLFacture(id){
+  const c=cmds.find(x=>x.id===id);if(!c)return;
+  const msg=`Bonjour,\n\nMerci de nous préparer le BL et la facture pour :\n\n📋 BC : ${c.reference}\n👤 Client : ${c.client||'—'}\n\nMerci 🙏`;
+  openWA('212661541469',msg);
 }
 
 function openUpdatePDF_noop2(){}// sentinel
