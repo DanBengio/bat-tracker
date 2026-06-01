@@ -294,10 +294,22 @@
     <div class="stat"><span class="sv" id="s-ca">—</span><span class="sl">CA total TTC</span></div>
     <a href="/prod.html" target="_blank" style="display:flex;align-items:center;gap:5px;padding:6px 12px;background:var(--prune);color:#fff;border-radius:6px;font-size:11px;font-weight:700;text-decoration:none;white-space:nowrap">🏭 Vue Prod</a>
     <div style="position:relative">
+      <button onclick="toggleAvisPanel()" style="background:none;border:none;cursor:pointer;font-size:20px;padding:4px;position:relative" title="Avis Google à envoyer">🌟<span id="hdr-avis-count" style="display:none;position:absolute;top:-2px;right:-4px;background:#f5be45;color:#1a2633;font-size:9px;font-weight:800;border-radius:10px;padding:1px 5px;min-width:16px;text-align:center">0</span></button>
+    </div>
+    <div style="position:relative">
       <button onclick="toggleProdPanel()" style="background:none;border:none;cursor:pointer;font-size:20px;padding:4px;position:relative" title="Commandes en prod non acquittées">🔔<span id="hdr-bell-count" style="display:none;position:absolute;top:-2px;right:-4px;background:#c0392b;color:#fff;font-size:9px;font-weight:800;border-radius:10px;padding:1px 5px;min-width:16px;text-align:center">0</span></button>
     </div>
   </div>
 </header>
+
+<!-- PANEL AVIS GOOGLE -->
+<div id="avis-panel" style="display:none;position:fixed;top:60px;right:16px;width:320px;background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.12);z-index:200;max-height:420px;overflow-y:auto;">
+  <div style="padding:12px 16px;border-bottom:1px solid var(--border);font-size:12px;font-weight:700;display:flex;justify-content:space-between;align-items:center;background:rgba(245,190,69,0.08);">
+    <span>🌟 Avis Google à envoyer</span>
+    <button onclick="toggleAvisPanel()" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:16px">✕</button>
+  </div>
+  <div id="avis-panel-list"></div>
+</div>
 
 <!-- PANEL PROD NOTIFS -->
 <div id="prod-panel" style="display:none;position:fixed;top:60px;right:16px;width:300px;background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.12);z-index:200;max-height:380px;overflow-y:auto;">
@@ -868,6 +880,7 @@ function render(){
   const nonAcquitte=cmds.filter(c=>!c.archive&&!c.attenteReglement&&(c.lignes||[]).some(l=>l.statut==='production')&&!c.prodStatus).length;
   const bellEl=document.getElementById('hdr-bell-count');
   if(bellEl){bellEl.textContent=nonAcquitte;bellEl.style.display=nonAcquitte>0?'block':'none';}
+  updateAvisBadge();
   document.getElementById('ff').innerHTML=`<button class="fb${aFF==='all'?' active':''}" onclick="setFF('all',this)">Tous <span class="fc">${cmds.length}</span></button>`+fournisseurs.map(f=>{const n=cmds.filter(c=>(c.lignes||[]).some(l=>l.fournisseur===f.nom)).length;return`<button class="fb${aFF===f.nom?' active':''}" onclick="setFF('${f.nom}',this)">${f.nom} <span class="fc">${n}</span></button>`;}).join('');
 }
 
@@ -907,6 +920,10 @@ function setLS(cid,li,stat){
   const c=cmds.find(x=>x.id===cid);
   if(!c||!c.lignes[li])return;
   c.lignes[li].statut=stat;
+  // Enregistre la date effective de livraison quand tout est livré
+  if(isFullyLivre(c)&&!c.dateLivraisonEffective){
+    c.dateLivraisonEffective=new Date().toISOString().split('T')[0];
+  }
   autoArchiveCheck(c);
   render();
   scheduleSave(c);
@@ -1282,6 +1299,73 @@ function setFilter(val,btn){
     syncMobileSelects();
   }
   render();
+}
+
+// ── AVIS GOOGLE ──
+const AVIS_LINK='https://g.page/baratextile/review?rc';
+const AVIS_DELAI_JOURS=3;
+
+function getBCsAvis(){
+  const today=new Date();today.setHours(0,0,0,0);
+  return cmds.filter(c=>{
+    if(!c.dateLivraisonEffective)return false;
+    if(c.avisEnvoye)return false;
+    const livraison=new Date(c.dateLivraisonEffective);livraison.setHours(0,0,0,0);
+    const diffJours=Math.floor((today-livraison)/(1000*60*60*24));
+    return diffJours>=AVIS_DELAI_JOURS;
+  });
+}
+
+function updateAvisBadge(){
+  const count=getBCsAvis().length;
+  const el=document.getElementById('hdr-avis-count');
+  if(el){el.textContent=count;el.style.display=count>0?'block':'none';}
+}
+
+function toggleAvisPanel(){
+  const p=document.getElementById('avis-panel');
+  const isOpen=p.style.display==='block';
+  p.style.display=isOpen?'none':'block';
+  if(!isOpen)renderAvisPanel();
+}
+
+function renderAvisPanel(){
+  const liste=getBCsAvis();
+  const el=document.getElementById('avis-panel-list');if(!el)return;
+  if(!liste.length){
+    el.innerHTML='<div style="padding:20px;text-align:center;color:var(--muted);font-size:12px">✅ Aucun avis à envoyer</div>';
+    return;
+  }
+  el.innerHTML=liste.map(c=>{
+    const msg=`Bonjour nous espérons que vous allez bien!\n\nSuite à votre expérience avec le Bar à Textile, nous vous serions très reconnaissant de nous donner votre avis! Cela nous aide beaucoup.\n\nLiens pour avis: ${AVIS_LINK}\n\nMerci pour votre confiance 🙏\n\nA très bientôt.\n\nL'équipe du Bar à Textile`;
+    const tel=(c.tel||'').replace(/\D/g,'');
+    return`<div style="padding:12px 16px;border-bottom:1px solid var(--border)">
+      <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:2px">${c.reference} — ${c.client||'—'}</div>
+      <div style="font-size:10px;color:var(--muted);margin-bottom:8px">Livré le ${new Date(c.dateLivraisonEffective).toLocaleDateString('fr-FR',{day:'2-digit',month:'long'})} · J+${Math.floor((new Date()-new Date(c.dateLivraisonEffective))/(1000*60*60*24))}</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        ${tel?`<button onclick="envoyerAvis('${c.id}')" style="padding:6px 12px;background:#25d366;color:#fff;border:none;border-radius:5px;font-family:'Raleway',sans-serif;font-size:11px;font-weight:700;cursor:pointer">📲 Envoyer WA</button>`:'<span style="font-size:11px;color:var(--muted)">Pas de tél</span>'}
+        <button onclick="marquerAvisEnvoye('${c.id}')" style="padding:6px 12px;background:var(--surface2);color:var(--muted);border:1px solid var(--border);border-radius:5px;font-family:'Raleway',sans-serif;font-size:11px;cursor:pointer">✓ Déjà envoyé</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function envoyerAvis(id){
+  const c=cmds.find(x=>x.id===id);if(!c)return;
+  const msg=`Bonjour nous espérons que vous allez bien!\n\nSuite à votre expérience avec le Bar à Textile, nous vous serions très reconnaissant de nous donner votre avis! Cela nous aide beaucoup.\n\nLiens pour avis: ${AVIS_LINK}\n\nMerci pour votre confiance 🙏\n\nA très bientôt.\n\nL'équipe du Bar à Textile`;
+  const tel=(c.tel||'').replace(/\D/g,'');
+  openWA(tel,msg);
+  // Marquer comme envoyé après 3s (temps d'ouvrir WA)
+  setTimeout(()=>marquerAvisEnvoye(id),3000);
+}
+
+function marquerAvisEnvoye(id){
+  const c=cmds.find(x=>x.id===id);if(!c)return;
+  c.avisEnvoye=true;
+  scheduleSave(c);
+  renderAvisPanel();
+  updateAvisBadge();
+  showToast('✅ Avis marqué comme envoyé');
 }
 
 function toggleProdPanel(){
