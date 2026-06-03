@@ -462,12 +462,8 @@ const isMobileAndroid=/Android/i.test(navigator.userAgent);
 function openWA(tel,text=''){
   const num=(tel||'').replace(/\D/g,'');if(!num)return;
   const txt=text?encodeURIComponent(text):'';
-  if(isMobileAndroid){
-    const fallback=`https://wa.me/${num}${text?'?text='+txt:''}`;
-    const iframe=document.createElement('iframe');iframe.style.display='none';document.body.appendChild(iframe);
-    iframe.src=`intent://send?phone=${num}${text?'&text='+txt:''}#Intent;scheme=whatsapp;package=com.whatsapp.w4b;S.browser_fallback_url=${encodeURIComponent(fallback)};end`;
-    setTimeout(()=>document.body.removeChild(iframe),3000);
-  }else{window.open(`https://wa.me/${num}${text?'?text='+txt:''}`, '_blank');}
+  // Sur prod.html → WhatsApp standard (pas Business)
+  window.open(`https://wa.me/${num}${text?'?text='+txt:''}`, 'whatsapp_window');
 }
 
 // ── TABS ──
