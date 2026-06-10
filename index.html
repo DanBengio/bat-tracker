@@ -1166,7 +1166,10 @@ function openWA(tel,text=''){
       document.body.removeChild(iframe);
     },3000);
   } else {
-    window.open(`https://wa.me/${num}${text?'?text='+txt:''}`, '_blank');
+    const waUrl=text
+      ?`https://web.whatsapp.com/send?phone=${num}&text=${txt}`
+      :`https://web.whatsapp.com/send?phone=${num}`;
+    window.open(waUrl, 'whatsapp_window');
   }
 }
 
